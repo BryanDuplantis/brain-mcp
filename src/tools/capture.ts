@@ -11,7 +11,7 @@ export const captureInputSchema = {
   type: z.enum(CAPTURE_TYPES as unknown as [string, ...string[]]),
   title: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  source: z.string().optional()
+  source: z.enum(['ios', 'macos', 'claude.ai', 'claude-code', 'bulk', 'unknown']).optional()
 }
 
 const fullSchema = z.object(captureInputSchema)
@@ -49,6 +49,6 @@ export async function captureHandler(
     id: document.id,
     stored: true,
     embedded,
-    path
+    path: document.id + '.md'  // filename only — full Pi path not exposed to caller
   }
 }
