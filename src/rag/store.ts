@@ -28,7 +28,10 @@ function client(): ChromaClient {
 
 async function collection(): Promise<Collection> {
   if (_collection) return _collection
-  _collection = await client().getOrCreateCollection({ name: COLLECTION })
+  _collection = await client().getOrCreateCollection({
+    name: COLLECTION,
+    metadata: { 'hnsw:space': 'cosine' }
+  })
   return _collection
 }
 

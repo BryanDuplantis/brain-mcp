@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "brain-mcp": {
+    "brain-mcp-local": {
       "type": "stdio",
       "command": "node",
       "args": ["dist/server.js"],
       "env": {
-        "BRAIN_DATA_DIR": "/Users/bryan/brain",
+        "BRAIN_DATA_DIR": "/Users/bryanduplantis/brain",
         "CHROMA_URL": "http://localhost:8000",
         "VOYAGE_API_KEY": "",
         "ANTHROPIC_PRIMARY_MODEL": "claude-sonnet-4-6"
