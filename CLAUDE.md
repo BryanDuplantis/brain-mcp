@@ -87,7 +87,7 @@ or any other tool until all three MVP tools are validated end-to-end.
 | Data location | `~/brain/` on the Pi. `BRAIN_ROOT` constant is the single source of truth — never hardcode the path. |
 | Vector store | ChromaDB with persistent Docker volume. In-memory fallback is dev only — never production on Pi. |
 | MCP framework | Official `@modelcontextprotocol/sdk`. Do not hand-roll the protocol. |
-| Auth | Bearer token on all HTTP tool calls. Validate `Origin` header. Reject unknown origins. |
+| Auth | Bearer token via `MCP_SECRET` when set; otherwise OPEN mode (relies on Funnel URL obscurity). Open mode is the documented escape hatch for clients like claude.ai custom connectors that only support OAuth and reject arbitrary Bearer tokens. Strict mode is recommended for higher-threat environments; future v2 will add proper MCP OAuth/DCR. Origin header always validated when `MCP_ALLOWED_ORIGINS` is set. |
 
 Violating a boundary requires explicit approval before proceeding.
 

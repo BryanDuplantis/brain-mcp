@@ -71,9 +71,10 @@ function parseAllowedOrigins(): Set<string> | null {
 function authMiddleware(secret: string | undefined) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!secret) {
-      res
-        .status(500)
-        .json({ error: 'MCP_SECRET is not configured on the server' })
+      // Open mode — perimeter defense is Funnel URL obscurity only.
+      // Intentional trade-off for clients (e.g. claude.ai custom connectors)
+      // that only support OAuth and reject arbitrary Bearer tokens.
+      next()
       return
     }
     const auth = req.headers['authorization'] ?? ''
@@ -114,6 +115,13 @@ async function runHttp(): Promise<void> {
 
   const secret = process.env.MCP_SECRET
   const allowed = parseAllowedOrigins()
+
+  if (!secret) {
+    console.warn(
+      '[brain-mcp] WARNING: MCP_SECRET unset — running in OPEN mode. ' +
+      'Only the Funnel URL obscurity protects this server.'
+    )
+  }
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'brain-mcp', version: '1.0.0' })
