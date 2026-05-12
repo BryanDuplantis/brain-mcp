@@ -1,0 +1,43 @@
+{
+  "name": "brain-mcp",
+  "version": "1.0.0",
+  "description": "Personal MCP server. Makes accumulated knowledge queryable by Claude across all surfaces.",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "brain-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node --esm src/server.ts",
+    "start": "node dist/server.js",
+    "start:http": "node dist/server.js --transport http",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "ingest-bulk": "tsx scripts/ingest-bulk.ts"
+  },
+  "keywords": ["mcp", "claude", "rag", "personal-knowledge"],
+  "author": "Bryan Duplantis",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "chromadb": "^1.9.0",
+    "express": "^4.21.0",
+    "gray-matter": "^4.0.3",
+    "voyageai": "^0.0.3",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -1,0 +1,54 @@
+import { z } from 'zod'
+import { writeDocument } from '../storage/writer.js'
+import { chunkDocument } from '../rag/chunk.js'
+import { embedTexts } from '../rag/embed.js'
+import { upsertChunks } from '../rag/store.js'
+import { CAPTURE_TYPES } from '../types.js'
+import type { CaptureResult, CaptureSource } from '../types.js'
+
+export const captureInputSchema = {
+  content: z.string().min(1, 'content is required').max(100_000, 'content exceeds 100KB limit'),
+  type: z.enum(CAPTURE_TYPES as unknown as [string, ...string[]]),
+  title: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  source: z.string().optional()
+}
+
+const fullSchema = z.object(captureInputSchema)
+type CaptureInput = z.infer<typeof fullSchema>
+
+export async function captureHandler(
+  rawInput: unknown
+): Promise<CaptureResult> {
+  const input: CaptureInput = fullSchema.parse(rawInput)
+
+  const { document, path } = await writeDocument({
+    content: input.content,
+    type: input.type as CaptureInput['type'] as never,
+    title: input.title,
+    tags: input.tags,
+    source: (input.source ?? 'unknown') as CaptureSource
+  })
+
+  let embedded = false
+  try {
+    const chunks = chunkDocument(document.id, document.content)
+    if (chunks.length > 0) {
+      const vectors = await embedTexts(chunks.map((c) => c.text))
+      embedded = await upsertChunks(chunks, vectors)
+    }
+  } catch (err) {
+    console.error(
+      '[brain-mcp] capture: embedding failed but document stored:',
+      (err as Error).message
+    )
+    embedded = false
+  }
+
+  return {
+    id: document.id,
+    stored: true,
+    embedded,
+    path
+  }
+}

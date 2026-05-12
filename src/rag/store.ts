@@ -1,0 +1,98 @@
+import { ChromaClient, type Collection } from 'chromadb'
+import type { Chunk } from './chunk.js'
+
+const COLLECTION = 'brain'
+
+export interface RawResult {
+  docId: string
+  chunkIndex: number
+  text: string
+  score: number
+}
+
+export interface QueryOutcome {
+  results: RawResult[]
+  available: boolean
+  message?: string
+}
+
+let _client: ChromaClient | null = null
+let _collection: Collection | null = null
+
+function client(): ChromaClient {
+  if (_client) return _client
+  const path = process.env.CHROMA_URL ?? 'http://localhost:8000'
+  _client = new ChromaClient({ path })
+  return _client
+}
+
+async function collection(): Promise<Collection> {
+  if (_collection) return _collection
+  _collection = await client().getOrCreateCollection({ name: COLLECTION })
+  return _collection
+}
+
+export async function upsertChunks(
+  chunks: Chunk[],
+  vectors: number[][]
+): Promise<boolean> {
+  if (chunks.length === 0) return true
+  if (chunks.length !== vectors.length) {
+    throw new Error('upsertChunks: chunk/vector length mismatch')
+  }
+  try {
+    const col = await collection()
+    await col.upsert({
+      ids: chunks.map((c) => `${c.docId}::${c.chunkIndex}`),
+      embeddings: vectors,
+      documents: chunks.map((c) => c.text),
+      metadatas: chunks.map((c) => ({
+        docId: c.docId,
+        chunkIndex: c.chunkIndex
+      }))
+    })
+    return true
+  } catch (err) {
+    console.error(
+      '[brain-mcp] ChromaDB upsert failed:',
+      (err as Error).message
+    )
+    return false
+  }
+}
+
+export async function queryByVector(
+  vector: number[],
+  topK: number
+): Promise<QueryOutcome> {
+  try {
+    const col = await collection()
+    const res = await col.query({
+      queryEmbeddings: [vector],
+      nResults: topK
+    })
+
+    const ids = res.ids?.[0] ?? []
+    const docs = res.documents?.[0] ?? []
+    const dists = res.distances?.[0] ?? []
+    const metas = res.metadatas?.[0] ?? []
+
+    const results: RawResult[] = ids.map((_id, i) => {
+      const meta = (metas[i] ?? {}) as Record<string, unknown>
+      const distance = typeof dists[i] === 'number' ? (dists[i] as number) : 1
+      return {
+        docId: typeof meta.docId === 'string' ? meta.docId : '',
+        chunkIndex:
+          typeof meta.chunkIndex === 'number' ? (meta.chunkIndex as number) : 0,
+        text: typeof docs[i] === 'string' ? (docs[i] as string) : '',
+        score: 1 - distance
+      }
+    })
+
+    return { results, available: true }
+  } catch (err) {
+    const message = (err as Error).message
+    console.error('[brain-mcp] ChromaDB query failed:', message)
+    return { results: [], available: false, message }
+  }
+}
