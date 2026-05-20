@@ -9,3 +9,13 @@ coverage/
 .vscode/
 .idea/
 *.tsbuildinfo
+
+# Credential material — never commit
+*.pem
+*.key
+*.p12
+*.pfx
+*secret*
+*token*
+*credentials*
+*.apikey
