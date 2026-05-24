@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quitters — Pajama Company Plan</title>
+<style>
+  :root {
+    --ink: #2b2622;
+    --soft: #6b6258;
+    --line: #e6ded3;
+    --cream: #faf6f0;
+    --card: #ffffff;
+    --accent: #b5654a;       /* warm terracotta */
+    --accent-soft: #f3e4dd;
+    --good: #4a7c59;
+    --good-soft: #e4efe6;
+    --warn: #b58a2a;
+    --warn-soft: #f6edd8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.65;
+    font-size: 17px;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 0 22px 90px; }
+
+  header.hero {
+    text-align: center;
+    padding: 64px 22px 40px;
+    background: linear-gradient(180deg, var(--accent-soft), var(--cream));
+    border-bottom: 1px solid var(--line);
+  }
+  header.hero .kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  header.hero h1 {
+    font-size: 54px;
+    margin: 8px 0 6px;
+    letter-spacing: -0.01em;
+  }
+  header.hero .tag {
+    font-style: italic;
+    color: var(--soft);
+    font-size: 19px;
+    max-width: 540px;
+    margin: 0 auto;
+  }
+  header.hero .date {
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--soft);
+  }
+
+  section { margin-top: 44px; }
+  h2 {
+    font-size: 26px;
+    margin: 0 0 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent-soft);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  h2 .num {
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  h3 { font-size: 18px; margin: 22px 0 6px; color: var(--ink); }
+  p { margin: 10px 0; }
+  .lead { font-size: 18px; color: var(--soft); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin: 14px 0;
+    box-shadow: 0 1px 2px rgba(43,38,34,0.03);
+  }
+
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 6px 0; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 15px;
+    background: var(--card);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--accent-soft); color: var(--ink); font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+
+  .pill {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    letter-spacing: 0.03em;
+  }
+  .pill.good { background: var(--good-soft); color: var(--good); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.acc  { background: var(--accent-soft); color: var(--accent); }
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 14px 18px;
+    border-radius: 0 10px 10px 0;
+    margin: 16px 0;
+  }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout.good { border-left-color: var(--good); background: var(--good-soft); }
+  .callout strong { display:block; margin-bottom:2px; }
+
+  .decisions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .decisions .card { margin: 0; }
+  .decisions .card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); font-weight: 700; }
+  .decisions .card .val { font-size: 18px; font-weight: 600; margin-top: 2px; }
+  .decisions .card .why { font-size: 14px; color: var(--soft); margin-top: 4px; }
+
+  .flow { counter-reset: step; }
+  .flow .step {
+    position: relative;
+    padding: 4px 0 18px 46px;
+    border-left: 2px solid var(--line);
+    margin-left: 14px;
+  }
+  .flow .step:last-child { border-left: 2px solid transparent; }
+  .flow .step::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: -16px; top: 0;
+    width: 30px; height: 30px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .flow .step h3 { margin-top: 2px; }
+  .flow .step p { margin: 4px 0; font-size: 15px; }
+
+  .next li { margin: 10px 0; }
+  .next .tagn { font-weight: 700; color: var(--accent); }
+
+  footer {
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+    color: var(--soft);
+    text-align: center;
+  }
+  a { color: var(--accent); }
+  @media (max-width: 620px) {
+    header.hero h1 { font-size: 40px; }
+    .decisions { grid-template-columns: 1fr; }
+    body { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="kicker">Founding Brief &middot; Night Notes</div>
+  <h1>Quitters</h1>
+  <p class="tag">&ldquo;You got your quitters on, I see!&rdquo; &mdash; the softest permission slip you&rsquo;ll ever own.</p>
+  <div class="date">Captured May 24, 2026 &middot; adults &middot; modal &middot; female-leaning &middot; DTC</div>
+</header>
+
+<div class="wrap">
+
+  <section>
+    <h2><span class="num">00</span> The one-paragraph version</h2>
+    <p class="lead">A direct-to-consumer sleepwear brand built around buttery-soft <strong>TENCEL modal</strong> pajama sets for women, wrapped in a warm, funny family story instead of the sterile minimalism every competitor uses. The fabric isn&rsquo;t the differentiator (everyone has modal) &mdash; <strong>fit you don&rsquo;t have to fight</strong> and <strong>brand emotion</strong> are. The name <em>is</em> the moat.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">01</span> Decisions already locked</h2>
+    <div class="decisions">
+      <div class="card"><div class="label">Hero fabric</div><div class="val">TENCEL Modal</div><div class="why">Softness is the whole emotional promise; year-round; mature supply chain.</div></div>
+      <div class="card"><div class="label">Scope</div><div class="val">Adults only (v1)</div><div class="why">Sidesteps children&rsquo;s sleepwear flammability compliance &mdash; a real legal landmine.</div></div>
+      <div class="card"><div class="label">Buyer</div><div class="val">Female-leaning</div><div class="why">Women drive 61% of all sleepwear purchases.</div></div>
+      <div class="card"><div class="label">Channel &amp; product</div><div class="val">DTC &middot; the set</div><div class="why">57% of category buys are online; sets = 41% of women&rsquo;s sleepwear.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> Supply chain &amp; logistics &mdash; end to end</h2>
+    <div class="callout">
+      <strong>The operating model most small brands run on</strong>
+      Full-package (FPP/FOB) manufacturing overseas, on purchase orders with <strong>30% deposit / 70% before ship</strong>, selling DTC on Shopify, with shipping outsourced to a 3PL. That&rsquo;s the spine; everything below hangs off it.
+    </div>
+
+    <div class="flow">
+      <div class="step">
+        <h3>Product &amp; spec</h3>
+        <p>The chain starts with a <strong>tech pack</strong> (measurements, grading, bill of materials, trims, labels), not the factory. Tools: Techpacker / Backbone PLM. Look for OEKO-TEX / Lenzing TENCEL certs.</p>
+      </div>
+      <div class="step">
+        <h3>Sourcing materials</h3>
+        <p>Fabric minimums are brutal (500&ndash;1,000+ yd/kg per color) &mdash; an FPP factory absorbs this for you. Don&rsquo;t forget trims: elastic, drawcords, thread, woven label, care label, hangtags, polybags.</p>
+      </div>
+      <div class="step">
+        <h3>Manufacturing</h3>
+        <p>Best modal-knit regions: <strong>Portugal</strong> (premium, low MOQ), Peru (pima), India (organic/value), Pakistan (loungewear), China (flexible), Turkey, USA-LA (small batch). Find via Maker&rsquo;s Row, Sewport, a sourcing agent (~5&ndash;10%), or trade shows (MAGIC, Texworld, Curve).</p>
+      </div>
+      <div class="step">
+        <h3>Sampling &amp; QC</h3>
+        <p>Gates: proto &rarr; fit &rarr; <strong>PP (pre-production)</strong> &rarr; size set &rarr; TOP. Approve the PP sample in writing before bulk. Use AQL 2.5 inspection (QIMA / SGS / Bureau Veritas). Don&rsquo;t pay the 70% balance until inspection passes.</p>
+      </div>
+      <div class="step">
+        <h3>Freight &amp; Incoterms</h3>
+        <p><strong>FOB</strong> is the small-brand default; <strong>DDP</strong> (delivered to your door, duties paid) is the easiest for your first 1&ndash;2 orders. Ocean (4&ndash;6 wks, LCL for small volume) vs air (days, 5&ndash;10&times; cost). Plan <strong>~90&ndash;150 days</strong> from PO to warehouse on run one.</p>
+      </div>
+      <div class="step">
+        <h3>Customs &amp; compliance</h3>
+        <p>Apparel duties are <strong>high (~8&ndash;32%)</strong> &mdash; man-made fiber &gt; cotton &mdash; plus Section 301 on China. Need a customs bond, ISF &ldquo;10+2&rdquo; filing, commercial invoice, packing list. DDP bundles this while you learn.</p>
+      </div>
+      <div class="step">
+        <h3>Fulfillment</h3>
+        <p>Self-fulfill the first small drop to learn it, then move to a 3PL (ShipBob, ShipMonk, Red Stag, FBA). Branded unboxing is cheap differentiation &mdash; put the family story on the card.</p>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <strong>Sleepwear regulatory note</strong>
+      Adult sleepwear still needs FTC fiber-content %, a care label (16 CFR 423), country of origin, and your company name or a free RN number. <strong>Children&rsquo;s</strong> sleepwear adds strict flammability rules (CPSC 16 CFR 1615/1616) &mdash; the reason v1 is adults-only.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> Contracts &amp; legal checklist</h2>
+    <div class="card">
+      <ul>
+        <li><strong>NDA</strong> before sharing designs with any factory.</li>
+        <li><strong>Trademark &ldquo;Quitters&rdquo; in Class 25 (clothing)</strong> &mdash; do a knockout search and file early. Your most important asset.</li>
+        <li><strong>Manufacturing / Supply Agreement</strong> &mdash; price, MOQ, lead times, terms, QC standard, defect remedy, and design IP ownership.</li>
+        <li><strong>Purchase Order</strong> per production run (styles, qty, price, ship date, Incoterm).</li>
+        <li><strong>Supplier Code of Conduct</strong> (labor/ethics &mdash; matters for retail buyers later).</li>
+        <li><strong>Freight &amp; 3PL service agreements</strong> with SLAs and damage/loss liability.</li>
+        <li><strong>Entity + sales tax + product-liability insurance</strong> (essential for anything worn).</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span> Costing &amp; cash reality</h2>
+    <div class="card">
+      <p><strong>Landed cost</strong> = FOB price + freight/unit + duty + customs/broker/insurance + 3PL inbound. Target roughly <strong>4&ndash;5&times; landed &rarr; retail</strong> to survive discounts, returns, and marketing.</p>
+      <p class="callout warn" style="margin:12px 0 0;"><strong>Cash is the constraint, not demand.</strong> You pay the deposit and the balance ~90 days before selling a single set. Manage it with small runs, pre-orders/drops, and a tight colorway count.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span> Market snapshot</h2>
+    <div class="card">
+      <ul>
+        <li>Women&rsquo;s sleepwear: ~<strong>$9.7B (2025) &rarr; ~$15.7B (2034)</strong>, 5.8% CAGR. Stable, not explosive &mdash; you take share, you don&rsquo;t ride a wave.</li>
+        <li><strong>Women = 61%</strong> of sleepwear purchases &middot; <strong>sets = 41%</strong> of women&rsquo;s sleepwear &middot; <strong>57%</strong> bought online.</li>
+        <li>DTC has lowered entry barriers &mdash; good for you, but the field is crowded.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">06</span> The competition</h2>
+    <table>
+      <thead><tr><th>Brand</th><th>Hero fabric</th><th>Set price</th><th>What they own</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Eberjey</strong></td><td>TENCEL modal</td><td>~$98&ndash;138</td><td>The modal benchmark (Gisele). Beat on softness + voice.</td></tr>
+        <tr><td>Lunya</td><td>Washable silk</td><td>~$178+</td><td>Premium, sleep-science minimalism.</td></tr>
+        <tr><td>Cozy Earth</td><td>Bamboo viscose</td><td>~$128&ndash;148</td><td>Temperature-regulating, Oprah/wellness halo.</td></tr>
+        <tr><td>MeUndies</td><td>Modal</td><td>~$129</td><td>Playful, basics/subscription DNA.</td></tr>
+        <tr><td>Lake</td><td>Pima cotton</td><td>~$98&ndash;128</td><td>Gifting, mommy-&amp;-me, Southern warmth.</td></tr>
+        <tr><td>Printfresh</td><td>Organic cotton</td><td>~$100&ndash;138</td><td>Maximalist whimsical prints.</td></tr>
+        <tr><td>Soma / mass</td><td>Blends</td><td>~$20&ndash;90</td><td>Mid-market and value floor.</td></tr>
+      </tbody>
+    </table>
+    <p>The premium modal lane piles up at <strong>~$98&ndash;150</strong> &mdash; the busiest lane in the category.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">07</span> Where Quitters wins <span class="pill acc">white space</span></h2>
+    <div class="card">
+      <ol>
+        <li><strong>Fit is the category&rsquo;s soft underbelly.</strong> Reviews everywhere complain of runs-large / inconsistent sizing and short sleeves for tall women. &ldquo;Pajamas that actually fit&rdquo; + true-to-size + a <strong>tall option</strong> is a defensible wedge.</li>
+        <li><strong>Quality details</strong> &mdash; light colors going see-through is a repeat gripe. Get opacity, fabric weight, and a real pocket right and earn review love cheaply.</li>
+        <li><strong>Brand emotion is wide open.</strong> The lane splits into sterile minimalism (Eberjey/Lunya) and loud prints (Printfresh). <strong>Nobody owns warm, funny, family-cozy</strong> &mdash; which is exactly &ldquo;you got your quitters on.&rdquo;</li>
+        <li><strong>Approachable-premium price gap (~$78&ndash;98)</strong> sits just under the pile-up &mdash; strong for gifting (holiday, Mother&rsquo;s Day, bridal, new-mom).</li>
+      </ol>
+    </div>
+    <div class="callout good">
+      <strong>Recommended positioning</strong>
+      &ldquo;Quitters &mdash; the softest permission slip you&rsquo;ll ever own.&rdquo; Premium-feeling TENCEL modal sets, fit you don&rsquo;t fight, a brand that&rsquo;s warm and funny instead of precious. Lead product: the modal set (long + short), 2&ndash;3 colorways, true-to-size + tall. Entry ~$78&ndash;98 (verify vs landed cost). First traction lever: gifting + the authentic family origin story.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">08</span> Target buyer (to validate)</h2>
+    <div class="card">
+      <p>Women <strong>28&ndash;55</strong>, comfort- and self-care-oriented, shops DTC/Instagram, buys for herself <em>and</em> gifts. Emotional driver: <strong>rest as a small rebellion</strong> &mdash; &ldquo;I&rsquo;ve earned the right to quit for the night.&rdquo; Secondary motion: gifting, then eventually his-and-hers / family sets (Lake proves it works).</p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">09</span> Homework before spending real money</h2>
+    <div class="card next">
+      <ul>
+        <li><span class="tagn">Buy the top 3</span> (Eberjey, Cozy Earth, MeUndies modal, ~$350). Wear-test softness, fit, opacity, washing &mdash; set the bar you must clear. Highest-ROI spend you&rsquo;ll make.</li>
+        <li><span class="tagn">Mine reviews</span> &mdash; read 100+ 1&ndash;3&star; competitor reviews and tally complaint themes. Free and brutal.</li>
+        <li><span class="tagn">Name/voice test</span> &mdash; does &ldquo;Quitters&rdquo; read cozy-funny or negative to cold audiences? Run a cheap IG split (family is lovingly biased).</li>
+        <li><span class="tagn">Trademark knockout search</span> in Class 25 &mdash; now, before falling in love.</li>
+        <li><span class="tagn">Price &amp; gifting survey</span> &mdash; what target women last paid and how often they gift sleepwear.</li>
+        <li><span class="tagn">Color &amp; weight</span> &mdash; validate 2&ndash;3 launch colors and modal gsm against opacity / too-thin / too-hot complaints.</li>
+      </ul>
+    </div>
+    <div class="callout">
+      <strong>Next deliverable on deck</strong>
+      A landed-cost + pricing model for the ~$78&ndash;98 modal set, to sanity-check margin before you talk to any factory.
+    </div>
+  </section>
+
+  <footer>
+    Quitters &mdash; founding night notes. Saved to brain &amp; repo on May 24, 2026.<br>
+    Get your quitters on.
+  </footer>
+
+</div>
+</body>
+</html>
