@@ -3,6 +3,8 @@ dist/
 .env
 .env.local
 .env.smoke
+.env.enrich
+scratch/
 .env.*.local
 *.log
 .DS_Store
