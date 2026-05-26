@@ -31,8 +31,9 @@ export function makeId(
   title: string,
   now: Date = new Date()
 ): string {
-  const date = now.toISOString().slice(0, 10)
   const slug = kebab(title) || 'untitled'
+  if (type === 'watchlist') return `watchlist-${slug}`
+  const date = now.toISOString().slice(0, 10)
   return `${date}-${type}-${slug}`
 }
 

@@ -31,4 +31,12 @@ describe('makeId', () => {
     const id = makeId('note', 'Hello World', new Date('2026-05-12T10:00:00Z'))
     expect(id).toBe('2026-05-12-note-hello-world')
   })
+  it('omits the date prefix for watchlist type', () => {
+    const id = makeId('watchlist', 'The Matrix', new Date('2026-05-26T10:00:00Z'))
+    expect(id).toBe('watchlist-the-matrix')
+  })
+  it('strips punctuation from watchlist titles', () => {
+    const id = makeId('watchlist', 'Spider-Man: Into the Spider-Verse')
+    expect(id).toBe('watchlist-spider-man-into-the-spider-verse')
+  })
 })

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.local
+.env.smoke
 .env.*.local
 *.log
 .DS_Store

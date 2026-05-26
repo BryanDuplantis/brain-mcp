@@ -4,7 +4,7 @@ import { chunkDocument } from '../rag/chunk.js'
 import { embedTexts } from '../rag/embed.js'
 import { upsertChunks } from '../rag/store.js'
 import { CAPTURE_TYPES } from '../types.js'
-import type { CaptureResult, CaptureSource } from '../types.js'
+import type { CaptureResult, CaptureSource, CaptureType } from '../types.js'
 
 export const captureInputSchema = {
   content: z.string().min(1, 'content is required').max(100_000, 'content exceeds 100KB limit'),
@@ -35,7 +35,10 @@ export async function captureHandler(
     const chunks = chunkDocument(document.id, document.content)
     if (chunks.length > 0) {
       const vectors = await embedTexts(chunks.map((c) => c.text))
-      embedded = await upsertChunks(chunks, vectors)
+      embedded = await upsertChunks(chunks, vectors, {
+        type: document.type as CaptureType,
+        source: document.source
+      })
     }
   } catch (err) {
     console.error(

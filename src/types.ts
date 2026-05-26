@@ -1,11 +1,18 @@
-export type CaptureType = 'session' | 'project' | 'idea' | 'decision' | 'note'
+export type CaptureType =
+  | 'session'
+  | 'project'
+  | 'idea'
+  | 'decision'
+  | 'note'
+  | 'watchlist'
 
 export const CAPTURE_TYPES: readonly CaptureType[] = [
   'session',
   'project',
   'idea',
   'decision',
-  'note'
+  'note',
+  'watchlist'
 ] as const
 
 export type CaptureSource =

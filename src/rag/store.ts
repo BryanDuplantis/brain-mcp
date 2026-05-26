@@ -1,5 +1,6 @@
 import { ChromaClient, type Collection } from 'chromadb'
 import type { Chunk } from './chunk.js'
+import type { CaptureSource, CaptureType } from '../types.js'
 
 const COLLECTION = 'brain'
 
@@ -15,6 +16,13 @@ export interface QueryOutcome {
   available: boolean
   message?: string
 }
+
+export interface ChunkMetadata {
+  type?: CaptureType
+  source?: CaptureSource
+}
+
+export type WhereFilter = Record<string, unknown>
 
 let _client: ChromaClient | null = null
 let _collection: Collection | null = null
@@ -37,7 +45,8 @@ async function collection(): Promise<Collection> {
 
 export async function upsertChunks(
   chunks: Chunk[],
-  vectors: number[][]
+  vectors: number[][],
+  meta?: ChunkMetadata
 ): Promise<boolean> {
   if (chunks.length === 0) return true
   if (chunks.length !== vectors.length) {
@@ -51,7 +60,9 @@ export async function upsertChunks(
       documents: chunks.map((c) => c.text),
       metadatas: chunks.map((c) => ({
         docId: c.docId,
-        chunkIndex: c.chunkIndex
+        chunkIndex: c.chunkIndex,
+        ...(meta?.type ? { type: meta.type } : {}),
+        ...(meta?.source ? { source: meta.source } : {})
       }))
     })
     return true
@@ -66,13 +77,15 @@ export async function upsertChunks(
 
 export async function queryByVector(
   vector: number[],
-  topK: number
+  topK: number,
+  where?: WhereFilter
 ): Promise<QueryOutcome> {
   try {
     const col = await collection()
     const res = await col.query({
       queryEmbeddings: [vector],
-      nResults: topK
+      nResults: topK,
+      ...(where ? { where } : {})
     })
 
     const ids = res.ids?.[0] ?? []

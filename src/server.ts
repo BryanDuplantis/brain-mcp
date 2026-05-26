@@ -8,6 +8,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { captureHandler, captureInputSchema } from './tools/capture.js'
 import { searchHandler, searchInputSchema } from './tools/search.js'
 import { recallHandler, recallInputSchema } from './tools/recall.js'
+import { findHandler, findInputSchema } from './tools/find.js'
 
 function buildServer(): McpServer {
   const server = new McpServer({
@@ -43,10 +44,23 @@ function buildServer(): McpServer {
 
   server.tool(
     'recall',
-    'Retrieve a full brain document by its ID. ID format: YYYY-MM-DD-{type}-{slug}.',
+    'Retrieve a full brain document by its ID. ID format: YYYY-MM-DD-{session|project|idea|decision|note}-{slug} or watchlist-{slug}.',
     recallInputSchema,
     async (args) => {
       const result = await recallHandler(args)
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        structuredContent: result as unknown as Record<string, unknown>
+      }
+    }
+  )
+
+  server.tool(
+    'find',
+    'Semantic search with optional type/source metadata filters. Use search for default knowledge retrieval; use find when you need to scope to specific capture types (e.g. ["watchlist"]) or sources, or to widen the default result count via topK.',
+    findInputSchema,
+    async (args) => {
+      const result = await findHandler(args)
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         structuredContent: result as unknown as Record<string, unknown>
