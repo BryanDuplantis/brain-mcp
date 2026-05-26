@@ -57,7 +57,7 @@ function buildServer(): McpServer {
 
   server.tool(
     'find',
-    'Semantic search with optional type/source metadata filters. Use search for default knowledge retrieval; use find when you need to scope to specific capture types (e.g. ["watchlist"]) or sources, or to widen the default result count via topK.',
+    'Semantic search with optional type/source metadata filters. Use search for default knowledge retrieval; use find when you need to scope to specific capture types (e.g. ["watchlist"]) or sources, or to widen the default result count via topK. NOTE: metadata-based filtering only matches captures created from 2026-05-26 onward (P1 cutover). Earlier captures lack type/source metadata on their chunks and will not surface under a type/source filter — query them via the search tool or omit filters.',
     findInputSchema,
     async (args) => {
       const result = await findHandler(args)
