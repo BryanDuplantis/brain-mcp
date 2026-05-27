@@ -300,6 +300,88 @@ Run restore drill monthly: confirm backup files exist and are current.
 
 ---
 
+## FM-11: Shared-types drift between brain-mcp and brain-enricher — stale process trap, doubled
+
+**Severity:** HIGH. Silent — both processes appear healthy while parsing the same file two ways.
+
+**Symptom:** A change to `src/shared/types.ts` (the `EnrichmentStatus` enum, `Enrichment` interface, or `BrainDocument` shape) lands. brain-mcp's MCP server keeps serving the old shape from its child-process module cache (per global §8 stale-MCP-process trap). brain-enricher's worker either picks up the new shape (if restarted) or also serves stale (if not). End state: one writer, one reader, two different shape contracts in memory. New captures land malformed from one perspective and well-formed from the other; `find` results disagree with what `enricher` wrote.
+
+**Cause:** Two long-running Node processes (`brain-mcp` MCP server + `brain-enricher` worker), each with its own `dist/` and its own module cache. `npm run build` updates files on disk; neither running process re-reads them. The path-dep arrangement (`brain-enricher`'s `package.json` declares `"brain-mcp": "file:../brain-mcp"`) catches drift at COMPILE time, not at runtime.
+
+**Resolution — explicit restart sequence after any commit touching `src/shared/`:**
+
+```bash
+# 1. Rebuild both repos
+cd ~/Projects/brain-mcp && npm run build
+cd ~/Projects/brain-enricher && npm run build
+
+# 2. Restart brain-enricher (Pi-side, user systemd)
+ssh brain-mcp.local 'systemctl --user restart brain-enricher.service'
+
+# 3. Force MCP client reconnect for brain-mcp (Claude Code: /mcp; iOS/claude.ai: toggle connector)
+
+# 4. Verify both sides see the new shape:
+#    - A capture from Claude Code shows the new frontmatter shape in `cat ~/brain/<id>.md`
+#    - `journalctl --user -u brain-enricher.service` shows worker tick referencing the new enum value
+```
+
+**Prevention:** Pre-commit check on any change touching `src/shared/`: `cd ../brain-enricher && npm run build` must pass locally before the brain-mcp commit lands. CI on brain-enricher must run after every brain-mcp commit that touches `src/shared/`.
+
+**Detection — if you suspect drift:** in a Claude Code session, capture a fresh watchlist entry. Read the file. If the frontmatter shape doesn't match what `src/shared/types.ts` says today, brain-mcp is serving stale. If the file lands fine but brain-enricher's worker logs reference an older status value (e.g. `enriched` instead of the current `v1`), brain-enricher is serving stale.
+
+---
+
+## FM-12: CLAUDE.md inheritance discipline — duplicate-context is how designed-vs-deployed gaps start
+
+**Severity:** MEDIUM. Documentation drift; load-bearing rules silently diverge across repos.
+
+**Symptom:** A rule documented in two places (e.g., global `~/.claude/CLAUDE.md` AND a project's `CLAUDE.md`) gets updated in one and not the other. Future sessions read whichever copy fires first and act on the stale version.
+
+**Cause:** Copy-paste-then-edit pattern across project CLAUDE.md files. Each copy is right at the moment of duplication and slowly diverges.
+
+**Resolution — inheritance via reference, not duplication:**
+
+Project CLAUDE.md files MUST start with an explicit inheritance header naming every file they inherit from, by absolute path. Example for `~/Projects/brain-enricher/CLAUDE.md`:
+
+```markdown
+# CLAUDE.md — brain-enricher
+
+Inherits from:
+- ~/.claude/CLAUDE.md  (global engineering standards, failure modes, rituals)
+- ~/Projects/brain-mcp/CLAUDE.md  (shared-types contract, BRAIN_ROOT, atomic writes, Voyage AI, MCP boundaries)
+
+This file adds only enricher-specific context. Do not duplicate rules from the inherited files; reference them by section anchor if you need to invoke one.
+```
+
+Local content scope: only what's specific to this project that isn't already covered by an inherited file. Worker lifecycle, polling cadence, retry policy, Anthropic rate-limit posture — these are local. Atomic writes, BRAIN_ROOT, MCP boundaries — these are inherited; do not restate.
+
+**Why absolute paths and not relative:** the inheritance is a fixture on this machine. If brain-mcp ever moves, both imports break together — which is the right failure mode (a single visible breakage, not silent semantic drift).
+
+**Detection:** When you edit a rule in a CLAUDE.md, grep for similar text across all CLAUDE.md files in `~/Projects` and `~/.claude`. Any duplicate is a violation; replace with a reference.
+
+---
+
+## FM-13: Continuation-agent ephemerality — load-bearing decisions sourced from disappeared agents are unreproducible
+
+**Severity:** MEDIUM. Silent — the agent is gone when you go to verify the decision.
+
+**Symptom:** A prior session ran an architect-review or other subagent. That agent returned an ID (e.g., `a3ff76d4d459ca81d`) for follow-up via `SendMessage`. A later session tries to query the same agent and gets "agent not found" — or worse, gets a new agent with the same name but no history of the prior conversation, leading to subtly wrong "yes that's still correct" answers.
+
+**Cause:** Continuation agent IDs are session-ephemeral. Persistence is scoped to the session lifetime; `/clear` or a new session makes the agent unreachable. The prior agent's reasoning state was never durable.
+
+**Resolution — never source a load-bearing decision from a continuation agent:**
+
+1. Every meaningful subagent output (architect-review, code-explorer, plan-review) MUST land as a file at session close. Reviews go to `~/Projects/<project>/reviews/`. Plans go to the same directory.
+2. The file IS the durable artifact. The agent ID is convenience-only, valid for follow-up clarifications within the spawning session.
+3. If a later session needs to revisit a prior decision, the workflow is: re-read the artifact → spawn a FRESH subagent with the artifact + the new question → never assume the prior agent is reachable.
+4. Documentation that names an agent ID for follow-up (e.g., "agent `<id>` available for clarifications") must also name the durable artifact's path, so the next reader has a working fallback.
+
+**Detection:** Memory entries or plan documents that reference "ask the prior agent if X" without a paired file path are red flags. Same for "the continuation agent confirmed Y" without the corresponding artifact citation. Both reduce to "trust me, this happened once."
+
+**Prevention:** Always pair an agent-ID reference with the durable artifact: "Continuation: agent `<id>` (this session only) — durable artifact: `<path>`."
+
+---
+
 ## Adding New Failure Modes
 
 When a pattern appears for the second time:
