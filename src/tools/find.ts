@@ -96,7 +96,12 @@ export async function findHandler(
       score,
       type: doc.type,
       created: doc.created,
-      tags: doc.tags
+      tags: doc.tags,
+      // F1 rework: explicit fields (no spread) — type-only changes don't
+      // propagate. Construction site MUST be touched when SearchResult shape
+      // grows.
+      enrichment_status: doc.enrichment_status,
+      enrichment_schema_version: doc.enrichment_schema_version
     })
   }
 

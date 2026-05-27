@@ -1,3 +1,9 @@
+import type { EnrichmentStatus } from './shared/index.js'
+
+// Re-export so consumers can `import type { EnrichmentStatus } from '../types.js'`
+// alongside BrainDocument without needing to know about the shared module's layout.
+export type { EnrichmentStatus } from './shared/index.js'
+
 export type CaptureType =
   | 'session'
   | 'project'
@@ -32,6 +38,8 @@ export interface BrainDocument {
   created: string
   captured_at: string
   source: CaptureSource
+  enrichment_status: EnrichmentStatus
+  enrichment_schema_version: number
 }
 
 export interface SearchResult {
@@ -42,6 +50,8 @@ export interface SearchResult {
   type: CaptureType
   created: string
   tags: string[]
+  enrichment_status: EnrichmentStatus
+  enrichment_schema_version: number
 }
 
 export interface SearchResponse {

@@ -2,7 +2,16 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
-import { parseWatchlist, type WatchlistEntry } from './parse-watchlist.js'
+import { parseWatchlist } from './parse-watchlist.js'
+import {
+  SYSTEM_PROMPT,
+  type Enrichment,
+  type EnrichedEntry,
+  type WatchlistEntry
+} from '../src/shared/index.js'
+
+// Re-export for callers (e.g., ingest-watchlist.ts) that import via this file.
+export type { Enrichment, EnrichedEntry } from '../src/shared/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -11,74 +20,6 @@ const OUT_PATH = path.join(__dirname, '..', 'scratch', 'watchlist-enriched.json'
 const MODEL = process.env.ANTHROPIC_PRIMARY_MODEL ?? 'claude-sonnet-4-6'
 const CONCURRENCY = 8
 const MAX_TOKENS = 600
-
-export interface Enrichment {
-  confidence: 'high' | 'medium' | 'low' | 'unknown'
-  genres: string[]
-  directors?: string[]
-  creators?: string[]
-  cast_top: string[]
-  synopsis: string
-  themes: string[]
-  notes?: string
-}
-
-export interface EnrichedEntry extends WatchlistEntry {
-  enrichment: Enrichment | null
-  error?: string
-}
-
-const SYSTEM_PROMPT = `You enrich a movie/TV watchlist entry with structured semantic metadata for a personal RAG/embedding system. The user is Bryan, an Atlanta-based engineer who watches a mix of prestige drama, body horror, A24-style indie, stand-up comedy, action, and foreign-language film. Your enrichments will be embedded and searched by genre/theme/director queries like "body horror by Fargeat", "A24-vibe slow burn", or "ensemble heist". Quality here directly determines whether semantic search of the watchlist later surfaces the right title or misses it entirely.
-
-OUTPUT CONTRACT — STRICT JSON, NO COMMENTARY:
-{
-  "confidence": "high" | "medium" | "low" | "unknown",
-  "genres": [1-4 lowercase tags, comma-free strings],
-  "directors": [array of director names, MOVIES ONLY],
-  "creators": [array of showrunner/creator names, TV ONLY],
-  "cast_top": [1-3 lead actor names, billed order],
-  "synopsis": "one-sentence plot description, under 200 chars",
-  "themes": [1-4 thematic tags like "grief", "found family", "techno-thriller"],
-  "notes": "optional short note for low/unknown confidence, under 100 chars"
-}
-
-CONFIDENCE GRADING (this is the load-bearing field — get it honest, not optimistic):
-- "high" — you recognize the title+year unambiguously and have detailed recall of plot, cast, and director/creator. You could describe a scene.
-- "medium" — you recognize it but recall is partial; some fields may be best-guess inferred from context (e.g., you know the director but are guessing on cast).
-- "low" — weak recall; you may be confusing this with a similarly-named work, or you only know the franchise but not this specific entry. Return your best guess but flag.
-- "unknown" — you do not recognize this title+year combo at all. Return empty arrays, synopsis="", notes="not recognized". Empty is correct here — DO NOT INVENT.
-
-DISAMBIGUATION RULES:
-- Year + kind (movie/tv) + platform are the canonical anchors. If your recall of the title points to a different year, that's a different work — set confidence="low" and put "[year mismatch: input Y, recalled X]" in notes.
-- The same title can refer to multiple distinct works (e.g., "Code 3" exists as both a 2025 movie and a 1957 TV series — both real, treat each entry independently using year+kind to identify which).
-- For TV shows, "Yr" is the show's debut year — long-running shows still use the debut year.
-- For movies released in late-year prestige windows (Oct-Dec), the year may be the festival/limited-release year, not wide-release.
-- For foreign-language film, the year is typically the country-of-origin theatrical year, not the US release.
-
-GENRE TAGGING NORMS (lowercase, compound when more specific):
-- Prefer compound tags: "body horror", "psychological thriller", "found-footage horror", "ensemble heist", "spy thriller", "courtroom drama", "stand-up comedy", "true crime", "musical biopic", "neo-noir", "cosmic horror", "slasher".
-- Avoid generic "drama" alone — pair it: "family drama", "period drama", "legal drama", "crime drama", "war drama".
-- "comedy" can stand alone for traditional sitcoms; otherwise specify "dark comedy" / "cringe comedy" / "rom-com" / "satire" / "absurdist comedy".
-- For foreign-language film, prepend language-locus when distinctive: "korean revenge", "french-language crime", "japanese family drama", "spanish-language thriller".
-- For limited prestige series, "limited series" can be a genre tag alongside the topical one.
-
-THEME TAGGING NORMS (these are NOT genres — they're the EMOTIONAL / NARRATIVE registers):
-- Examples: "grief", "found family", "class conflict", "midlife crisis", "addiction", "AI threat", "cold war paranoia", "domestic abuse", "religious extremism", "memory loss", "father-son", "mother-daughter", "queer awakening", "post-apocalyptic survival", "media manipulation", "corporate malfeasance".
-- 1-4 themes max. Skip if no obvious one — empty array is fine and better than reaching.
-
-CAST RULES:
-- cast_top is the LEAD actors only, max 3, billed order.
-- Use commonly-known names ("Demi Moore" not "Demi Moore [as Elisabeth]").
-- For ensembles (e.g., heist films, the big-cast prestige series), pick the billed-first three.
-
-EDGE CASES:
-- Stand-up specials: kind=movie. Genre=["stand-up comedy"]. cast_top=[performer]. directors=[performer or filmed-by director if known]. Synopsis describes the performer's angle.
-- Limited series / anthology: kind=tv. Use creators[], not directors[].
-- Foreign-language unfamiliar title: confidence="unknown" is the right answer. Don't invent details. Better empty than wrong.
-- Sequels/franchise entries: synopsis can reference the franchise but should describe THIS entry's specific hook.
-- Documentaries: genre=["documentary"] plus topical (e.g., "true crime", "music documentary", "political documentary").
-
-OUTPUT: ONLY valid JSON. No prose, no markdown fences, no preamble. First character must be { and last character must be }. If you cannot produce valid JSON, return {"confidence":"unknown","genres":[],"cast_top":[],"synopsis":"","themes":[],"notes":"output error"}.`
 
 const client = new Anthropic()
 

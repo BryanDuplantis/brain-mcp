@@ -2,62 +2,17 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { captureHandler } from '../src/tools/capture.js'
-import type { EnrichedEntry } from './enrich-watchlist.js'
+import {
+  formatContent,
+  shapeTitle,
+  tagsFor,
+  type EnrichedEntry
+} from '../src/shared/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = path.join(__dirname, '..', 'scratch', 'watchlist-enriched.json')
 const LOG_PATH = path.join(__dirname, '..', 'scratch', 'ingest-log.json')
 const CONCURRENCY = 3
-
-function kebab(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .slice(0, 40)
-    .replace(/-+$/, '')
-}
-
-function shapeTitle(entry: EnrichedEntry): string {
-  return entry.slug === kebab(entry.title)
-    ? entry.title
-    : `${entry.title} (${entry.year})`
-}
-
-function formatContent(entry: EnrichedEntry): string {
-  const en = entry.enrichment
-  if (!en || en.confidence === 'unknown') {
-    return `${entry.title} (${entry.year}, ${entry.kind}). Platform: ${entry.platform ?? 'unknown'}. Rating: ${entry.rating ?? 'unknown'}. Genre/cast/synopsis: not available (${en?.notes ?? 'unknown'}).`
-  }
-
-  const byField = entry.kind === 'movie' ? 'Director' : 'Creator'
-  const byList = entry.kind === 'movie' ? en.directors : en.creators
-  const by = byList && byList.length > 0 ? byList.join(', ') : null
-
-  const parts: string[] = []
-  parts.push(`${entry.title} (${entry.year}, ${entry.kind}) — ${en.synopsis}`)
-  if (en.genres.length) parts.push(`Genres: ${en.genres.join(', ')}.`)
-  if (by) parts.push(`${byField}: ${by}.`)
-  if (en.cast_top.length) parts.push(`Cast: ${en.cast_top.join(', ')}.`)
-  if (en.themes && en.themes.length) parts.push(`Themes: ${en.themes.join(', ')}.`)
-  if (entry.platform) parts.push(`Platform: ${entry.platform}.`)
-  if (entry.rating != null) parts.push(`Rating: ${entry.rating}/10.`)
-  if (en.confidence !== 'high')
-    parts.push(`(Confidence: ${en.confidence}${en.notes ? ' — ' + en.notes : ''})`)
-  return parts.join(' ')
-}
-
-function tagsFor(entry: EnrichedEntry): string[] {
-  const t = ['watchlist', entry.kind]
-  if (entry.platform) {
-    t.push(entry.platform.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''))
-  }
-  if (entry.enrichment?.genres?.[0]) {
-    t.push(entry.enrichment.genres[0].toLowerCase().replace(/\s+/g, '-'))
-  }
-  return t.filter((s) => s.length > 0)
-}
 
 interface IngestRecord {
   id: string

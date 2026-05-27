@@ -1,13 +1,8 @@
 import fs from 'node:fs/promises'
+import type { WatchlistEntry } from '../src/shared/index.js'
 
-export interface WatchlistEntry {
-  title: string
-  year: number | null
-  kind: 'movie' | 'tv'
-  platform: string | null
-  rating: number | null
-  slug: string  // disambiguated kebab — unique across the corpus
-}
+// Re-export for backward compat — existing callers import { WatchlistEntry } from this file.
+export type { WatchlistEntry }
 
 const KEBAB_MAX = 40
 

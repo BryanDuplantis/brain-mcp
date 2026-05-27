@@ -2,7 +2,12 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import matter from 'gray-matter'
 import { BRAIN_ROOT, brainFilePath } from './brain-path.js'
-import type { BrainDocument, CaptureSource, CaptureType } from '../types.js'
+import type {
+  BrainDocument,
+  CaptureSource,
+  CaptureType,
+  EnrichmentStatus
+} from '../types.js'
 
 const KEBAB_MAX = 40
 
@@ -44,6 +49,24 @@ export interface WriteInput {
   tags?: string[]
   source?: CaptureSource
   now?: Date
+  /**
+   * Internal-API-only override for enrichment fields. NOT exposed via the
+   * MCP capture tool's Zod schema (`captureInputSchema` rejects this field
+   * at the network boundary). Only in-process import callers — like the
+   * P2 backfill script — can request the override.
+   *
+   * When omitted: writer applies type-discriminated defaults:
+   *   `watchlist` → 'pending' + 0
+   *   anything else → 'not_applicable' + 0
+   *
+   * Security note: this param represents a privilege boundary. Changing
+   * the boundary (e.g., adding the field to captureInputSchema) requires
+   * an explicit security review pass per plan §4 P2.
+   */
+  enrichment_override?: {
+    status: EnrichmentStatus
+    schema_version: number
+  }
 }
 
 export async function writeDocument(
@@ -55,6 +78,13 @@ export async function writeDocument(
   const title = deriveTitle(input.content, input.title)
   const id = makeId(input.type, title, now)
 
+  const defaultStatus: EnrichmentStatus =
+    input.type === 'watchlist' ? 'pending' : 'not_applicable'
+  const enrichmentStatus: EnrichmentStatus =
+    input.enrichment_override?.status ?? defaultStatus
+  const enrichmentSchemaVersion: number =
+    input.enrichment_override?.schema_version ?? 0
+
   const doc: BrainDocument = {
     id,
     type: input.type,
@@ -62,8 +92,10 @@ export async function writeDocument(
     content: input.content,
     tags: input.tags ?? [],
     created: now.toISOString().slice(0, 10),
-    captured_at: now.toISOString().slice(0, 16),
-    source: input.source ?? 'unknown'
+    captured_at: now.toISOString().slice(0, 19),
+    source: input.source ?? 'unknown',
+    enrichment_status: enrichmentStatus,
+    enrichment_schema_version: enrichmentSchemaVersion
   }
 
   const frontmatter = {
@@ -73,7 +105,9 @@ export async function writeDocument(
     tags: doc.tags,
     created: doc.created,
     captured_at: doc.captured_at,
-    source: doc.source
+    source: doc.source,
+    enrichment_status: doc.enrichment_status,
+    enrichment_schema_version: doc.enrichment_schema_version
   }
   const serialized = matter.stringify(doc.content, frontmatter)
 

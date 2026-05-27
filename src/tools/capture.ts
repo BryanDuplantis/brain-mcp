@@ -14,7 +14,14 @@ export const captureInputSchema = {
   source: z.enum(['ios', 'macos', 'claude.ai', 'claude-code', 'bulk', 'unknown']).optional()
 }
 
-const fullSchema = z.object(captureInputSchema)
+// R1 micro-rework: `.strict()` makes Zod throw on unknown keys instead of
+// silently dropping them. The privilege boundary is *the schema itself* —
+// `enrichment_override` (and any other future internal-only WriteInput field)
+// MUST be rejected at the MCP boundary, not silently filtered. A malformed
+// caller passing `enrichment_override: { status: 'v1', ... }` gets a Zod
+// parse error here; only direct in-process import callers (e.g. P2 backfill)
+// can request the override via `writeDocument(..., { enrichment_override: ... })`.
+const fullSchema = z.object(captureInputSchema).strict()
 type CaptureInput = z.infer<typeof fullSchema>
 
 export async function captureHandler(

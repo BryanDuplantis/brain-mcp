@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Anthropic from '@anthropic-ai/sdk'
-import type { EnrichedEntry, Enrichment } from './enrich-watchlist.js'
+import type { EnrichedEntry, Enrichment } from '../src/shared/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_PATH = path.join(__dirname, '..', 'scratch', 'watchlist-enriched.json')

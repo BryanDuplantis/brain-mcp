@@ -310,20 +310,46 @@ Run restore drill monthly: confirm backup files exist and are current.
 
 **Resolution — explicit restart sequence after any commit touching `src/shared/`:**
 
+The brain-mcp server on the Pi runs as a **SYSTEM-scope** systemd unit (`brain-mcp.service`,
+NOT `--user`) — verified via F12 probe 2026-05-27. brain-enricher is **user-scope** (matches
+discord-trigger-router precedent). The two scopes need different restart commands; mixing
+them up silently no-ops.
+
+Pi-side directory layout (locked 2026-05-27 F12 probe — flat under home, NOT `~/Projects/`):
+- `~/brain-mcp/` (system-scope service)
+- `~/brain-enricher/` (user-scope service, planned)
+- `~/discord-trigger-router/` (user-scope service, existing precedent)
+
 ```bash
-# 1. Rebuild both repos
+# 1. Rebuild both repos on Mac
 cd ~/Projects/brain-mcp && npm run build
 cd ~/Projects/brain-enricher && npm run build
 
-# 2. Restart brain-enricher (Pi-side, user systemd)
-ssh brain-mcp.local 'systemctl --user restart brain-enricher.service'
+# 2. Deploy fresh dist to Pi (both repos rsync flat under home)
+rsync -av --delete ~/Projects/brain-mcp/dist/         brydup@<pi-ip>:~/brain-mcp/dist/
+rsync -av --delete ~/Projects/brain-enricher/dist/    brydup@<pi-ip>:~/brain-enricher/dist/
 
-# 3. Force MCP client reconnect for brain-mcp (Claude Code: /mcp; iOS/claude.ai: toggle connector)
+# 3. Restart brain-mcp on Pi — SYSTEM scope, sudo required
+ssh -o ConnectTimeout=10 brydup@<pi-ip> 'sudo systemctl restart brain-mcp.service'
 
-# 4. Verify both sides see the new shape:
+# 4. Restart brain-enricher on Pi — USER scope, no sudo
+ssh -o ConnectTimeout=10 brydup@<pi-ip> 'systemctl --user restart brain-enricher.service'
+
+# 5. Force Mac-side MCP client reconnect (stdio child-process module cache):
+#    - Claude Code: `/mcp` reconnect for brain-mcp
+#    - iOS / claude.ai: toggle the brain-mcp connector off/on
+
+# 6. Verify both sides see the new shape:
 #    - A capture from Claude Code shows the new frontmatter shape in `cat ~/brain/<id>.md`
 #    - `journalctl --user -u brain-enricher.service` shows worker tick referencing the new enum value
+#    - `sudo journalctl -u brain-mcp.service --since "5 min ago"` shows clean restart (no errors)
 ```
+
+**Why both server-side restart AND client reconnect:** brain-mcp serves two transports.
+The Pi-side HTTP server (iOS/claude.ai) holds OLD code in its long-running Node process
+until `sudo systemctl restart brain-mcp.service` reloads. The Mac-side stdio child (Claude
+Code) holds OLD code until `/mcp` reconnect respawns the child. Skipping either side
+leaves that surface serving stale.
 
 **Prevention:** Pre-commit check on any change touching `src/shared/`: `cd ../brain-enricher && npm run build` must pass locally before the brain-mcp commit lands. CI on brain-enricher must run after every brain-mcp commit that touches `src/shared/`.
 

@@ -58,7 +58,9 @@ export async function searchHandler(
       score,
       type: doc.type,
       created: doc.created,
-      tags: doc.tags
+      tags: doc.tags,
+      enrichment_status: doc.enrichment_status,
+      enrichment_schema_version: doc.enrichment_schema_version
     })
   }
 

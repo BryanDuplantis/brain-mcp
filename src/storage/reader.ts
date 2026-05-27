@@ -3,6 +3,7 @@ import matter from 'gray-matter'
 import { brainFilePath, BRAIN_ROOT } from './brain-path.js'
 import type { BrainDocument, CaptureSource, CaptureType } from '../types.js'
 import { CAPTURE_TYPES } from '../types.js'
+import { asEnrichmentStatus } from '../shared/index.js'
 
 function normalizeDate(value: unknown): string {
   if (value instanceof Date) return value.toISOString().slice(0, 10)
@@ -10,9 +11,15 @@ function normalizeDate(value: unknown): string {
   return ''
 }
 
+// Seconds-precision timestamps (R-extra micro-rework). The writer emits
+// `.slice(0, 19)` from `.toISOString()` → `2026-05-27T14:32:07`. If this
+// reader truncates to `.slice(0, 16)`, CAS round-trip writes pendingStartedAt
+// at 19 chars and re-reads at 16 chars — string equality fails on every
+// write, worker aborts every enrichment. Both branches must match writer's
+// 19-char emit.
 function normalizeDateTime(value: unknown): string {
-  if (value instanceof Date) return value.toISOString().slice(0, 16)
-  if (typeof value === 'string') return value.slice(0, 16)
+  if (value instanceof Date) return value.toISOString().slice(0, 19)
+  if (typeof value === 'string') return value.slice(0, 19)
   return ''
 }
 
@@ -36,6 +43,18 @@ function asStringArray(value: unknown): string[] {
   return []
 }
 
+// Integer parse with default. Defends against accidental floats/strings in
+// frontmatter (gray-matter typically parses unquoted numeric YAML to number,
+// but legacy or hand-edited frontmatter may carry a string).
+function asInteger(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isInteger(value)) return value
+  if (typeof value === 'string') {
+    const n = parseInt(value, 10)
+    if (Number.isInteger(n)) return n
+  }
+  return fallback
+}
+
 export async function readDocument(id: string): Promise<BrainDocument | null> {
   if (!id || typeof id !== 'string') return null
 
@@ -53,7 +72,11 @@ export async function readDocument(id: string): Promise<BrainDocument | null> {
       tags: asStringArray(fm.tags),
       created: normalizeDate(fm.created),
       captured_at: normalizeDateTime(fm.captured_at),
-      source: asSource(fm.source)
+      source: asSource(fm.source),
+      // Legacy frontmatter (pre-P0) lacks both fields; defaults route those
+      // captures to `not_applicable` so the worker scan-loop skips them.
+      enrichment_status: asEnrichmentStatus(fm.enrichment_status, 'not_applicable'),
+      enrichment_schema_version: asInteger(fm.enrichment_schema_version, 0)
     }
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code

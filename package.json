@@ -4,6 +4,25 @@
   "description": "Personal MCP server. Makes accumulated knowledge queryable by Claude across all surfaces.",
   "type": "module",
   "main": "dist/server.js",
+  "exports": {
+    ".": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./shared": {
+      "types": "./dist/shared/index.d.ts",
+      "default": "./dist/shared/index.js"
+    },
+    "./shared/brain-path": {
+      "types": "./dist/storage/brain-path.d.ts",
+      "default": "./dist/storage/brain-path.js"
+    },
+    "./storage/writer": {
+      "types": "./dist/storage/writer.d.ts",
+      "default": "./dist/storage/writer.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "brain-mcp": "dist/server.js"
   },
