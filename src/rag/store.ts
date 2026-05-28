@@ -75,6 +75,31 @@ export async function upsertChunks(
   }
 }
 
+/**
+ * Delete all chunks for a document by its docId metadata (via `where`, so it
+ * catches orphan `docId::N` chunks at ANY index, not just the ones a caller is
+ * about to rewrite). Used by `reindexDocument` strictly BEFORE upsert: if a
+ * doc's chunk count shrinks between indexings, stale chunks would otherwise
+ * linger and pollute search. A first-time capture's delete is a harmless no-op.
+ *
+ * Returns false on failure so the caller can refuse to proceed to upsert
+ * (never leave a mixed old+new chunk set).
+ */
+export async function deleteByDocId(docId: string): Promise<boolean> {
+  if (!docId) return false
+  try {
+    const col = await collection()
+    await col.delete({ where: { docId } })
+    return true
+  } catch (err) {
+    console.error(
+      '[brain-mcp] ChromaDB delete failed:',
+      (err as Error).message
+    )
+    return false
+  }
+}
+
 export async function queryByVector(
   vector: number[],
   topK: number,

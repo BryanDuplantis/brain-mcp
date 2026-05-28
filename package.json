@@ -21,6 +21,18 @@
       "types": "./dist/storage/writer.d.ts",
       "default": "./dist/storage/writer.js"
     },
+    "./storage/reader": {
+      "types": "./dist/storage/reader.d.ts",
+      "default": "./dist/storage/reader.js"
+    },
+    "./rag/reindex": {
+      "types": "./dist/rag/reindex.d.ts",
+      "default": "./dist/rag/reindex.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {

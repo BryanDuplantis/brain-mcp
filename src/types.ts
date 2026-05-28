@@ -40,6 +40,14 @@ export interface BrainDocument {
   source: CaptureSource
   enrichment_status: EnrichmentStatus
   enrichment_schema_version: number
+  // D2-A structured watchlist fields — present only on type === 'watchlist'
+  // (the "four questions": title+year, movie/tv, platform, rating). The
+  // brain-enricher worker reads these to build a WatchlistEntry for Sonnet
+  // without reverse-parsing prose.
+  year?: number | null
+  kind?: 'movie' | 'tv'
+  platform?: string | null
+  rating?: number | null
 }
 
 export interface SearchResult {
