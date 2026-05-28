@@ -408,6 +408,29 @@ Local content scope: only what's specific to this project that isn't already cov
 
 ---
 
+## FM-14: Hand-rolled brain docs violate the writer's three invariants — worker/reader/CAS break silently
+
+**Severity:** MEDIUM. Silent — a hand-rolled doc looks fine in an editor and still breaks enrichment when the worker touches it.
+
+**Symptom:** A markdown file placed in `~/brain/` by hand (not via `writeDocument`) is never enriched, mis-read, or CAS-aborts every tick — depending on which invariant it breaks. Surfaced 2026-05-28 hand-rolling the G2 smoke doc.
+
+**Cause:** `writeDocument` (src/storage/writer.ts) enforces three invariants that the reader, the worker's CAS check, and `buildWatchlistEntry`/`writeEnriched` all depend on. Hand authorship bypasses that enforcement:
+
+1. **`captured_at` (and `created`) MUST be a quoted YAML string** — `captured_at: '2026-05-28T18:15:00'`, never unquoted. Unquoted, YAML coerces it to a timestamp/Date; gray-matter re-serializes it differently than the reader's string `.slice(0,19)` expects, so the round-tripped value drifts and the worker's string CAS-compare mismatches.
+2. **The datetime MUST be 19-char seconds precision** (`YYYY-MM-DDTHH:MM:SS`), matching what the writer stamps. 16-char minute precision is backward-permissive on read (R-extra) but loses sub-minute CAS safety and is non-canonical — pair it with an unquoted value (invariant 1) and the Date-coercion mismatch becomes a permanent CAS abort.
+3. **The filename MUST equal `watchlist-${kebab(title)}`** (watchlist) / `${date}-${type}-${kebab(title)}` (else). `makeId` derives the id from the title, and recall-by-id, the poll scan, and `writeEnriched` (which regenerates the id from the title — see FM-14's sibling P2 issue) all assume filename == derived id. A mismatch makes the doc unrecallable by its frontmatter id and sends the enrichment write-back to the wrong path.
+
+**Resolution — `writeDocument` is the only sanctioned writer to `~/brain/`:**
+1. Use `writeDocument` (or the `capture` tool) for any `~/brain/` write — it enforces all three invariants atomically.
+2. If hand-rolling is unavoidable (test fixtures), mirror the writer exactly: quoted-string `captured_at`/`created`, 19-char datetime, filename = `watchlist-${kebab(title)}` (lowercase, strip `[^a-z0-9\s-]`, spaces→`-`, ≤40 chars, trim trailing `-`).
+3. Verify by behavior: the worker advances it `pending → v1`, and `recall` by the frontmatter id returns it.
+
+**Detection:** A watchlist doc the worker never enriches (filename ≠ derived id → scan sees it, `writeEnriched` targets a different path), or one that CAS-aborts every tick (unquoted/short `captured_at`).
+
+**Prevention:** brain-enricher's CLAUDE.md already says "NEVER hand-edit `~/brain/*.md` frontmatter from this worker." FM-14 generalizes it: never hand-author a `~/brain/` doc from anywhere — go through `writeDocument`.
+
+---
+
 ## Adding New Failure Modes
 
 When a pattern appears for the second time:
