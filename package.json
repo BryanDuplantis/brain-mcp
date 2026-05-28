@@ -29,6 +29,10 @@
       "types": "./dist/rag/reindex.d.ts",
       "default": "./dist/rag/reindex.js"
     },
+    "./rag/embed": {
+      "types": "./dist/rag/embed.d.ts",
+      "default": "./dist/rag/embed.js"
+    },
     "./types": {
       "types": "./dist/types.d.ts",
       "default": "./dist/types.js"
