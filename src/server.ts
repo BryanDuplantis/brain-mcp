@@ -2,13 +2,17 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import crypto from 'node:crypto'
+import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js'
 import express, { type Request, type Response, type NextFunction } from 'express'
 
 import { captureHandler, captureInputSchema } from './tools/capture.js'
 import { searchHandler, searchInputSchema } from './tools/search.js'
 import { recallHandler, recallInputSchema } from './tools/recall.js'
 import { findHandler, findInputSchema } from './tools/find.js'
+import { FileOAuthProvider } from './auth/provider.js'
+import { FileClientStore } from './auth/store.js'
+import { combinedAuthMiddleware } from './auth/gate.js'
+import { createConsentHandlers } from './auth/consent.js'
 
 function buildServer(): McpServer {
   const server = new McpServer({
@@ -82,28 +86,6 @@ function parseAllowedOrigins(): Set<string> | null {
   )
 }
 
-function authMiddleware(secret: string | undefined) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    if (!secret) {
-      // Open mode — perimeter defense is Funnel URL obscurity only.
-      // Intentional trade-off for clients (e.g. claude.ai custom connectors)
-      // that only support OAuth and reject arbitrary Bearer tokens.
-      next()
-      return
-    }
-    const auth = req.headers['authorization'] ?? ''
-    const expected = `Bearer ${secret}`
-    const match =
-      auth.length === expected.length &&
-      crypto.timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
-    if (!match) {
-      res.status(401).json({ error: 'Unauthorized' })
-      return
-    }
-    next()
-  }
-}
-
 function originMiddleware(allowed: Set<string> | null) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!allowed) {
@@ -123,26 +105,90 @@ function originMiddleware(allowed: Set<string> | null) {
   }
 }
 
+/**
+ * HTTP transport requires the full auth stack (build "C"). Fail fast — never
+ * boot into a partially-configured or open state (H1).
+ */
+interface HttpConfig {
+  secret: string
+  publicBaseUrl: string
+  authorizePassword: string
+}
+
+function loadHttpConfig(): HttpConfig {
+  const secret = process.env.MCP_SECRET
+  const publicBaseUrl = process.env.PUBLIC_BASE_URL
+  const authorizePassword = process.env.OAUTH_AUTHORIZE_PASSWORD
+  const allowedRedirects = process.env.OAUTH_ALLOWED_REDIRECT_URIS
+
+  const missing: string[] = []
+  if (!secret || !secret.trim()) missing.push('MCP_SECRET')
+  if (!publicBaseUrl || !publicBaseUrl.trim()) missing.push('PUBLIC_BASE_URL')
+  if (!authorizePassword || !authorizePassword.trim()) missing.push('OAUTH_AUTHORIZE_PASSWORD')
+  if (!allowedRedirects || !allowedRedirects.trim()) missing.push('OAUTH_ALLOWED_REDIRECT_URIS')
+
+  if (missing.length > 0) {
+    console.error(
+      `[brain-mcp] FATAL: HTTP transport requires ${missing.join(', ')}. ` +
+        'Refusing to start — open mode was removed in build C (H1).'
+    )
+    process.exit(1)
+  }
+
+  // Validated above.
+  return {
+    secret: secret as string,
+    publicBaseUrl: (publicBaseUrl as string).replace(/\/+$/, ''),
+    authorizePassword: authorizePassword as string
+  }
+}
+
 async function runHttp(): Promise<void> {
+  const config = loadHttpConfig()
   const app = express()
   app.use(express.json({ limit: '4mb' }))
 
-  const secret = process.env.MCP_SECRET
   const allowed = parseAllowedOrigins()
+  const issuerUrl = new URL(config.publicBaseUrl)
+  const resourceServerUrl = new URL(`${config.publicBaseUrl}/mcp`)
+  const secureCookie = issuerUrl.protocol === 'https:'
 
-  if (!secret) {
-    console.warn(
-      '[brain-mcp] WARNING: MCP_SECRET unset — running in OPEN mode. ' +
-      'Only the Funnel URL obscurity protects this server.'
-    )
-  }
+  // OAuth authorization server (build C). Provider + persistent client/refresh store.
+  const provider = new FileOAuthProvider(new FileClientStore())
+
+  // Consent gate — the single-user password that keeps H1 closed under OAuth.
+  const consent = createConsentHandlers({
+    password: config.authorizePassword,
+    cookieKey: config.secret,
+    secureCookie
+  })
+  // MUST precede mcpAuthRouter so /authorize is gated before the SDK handler runs.
+  app.all('/authorize', consent.gate)
+  app.post('/authorize/consent', express.urlencoded({ extended: false }), consent.submit)
+
+  // SDK OAuth router: /token, DCR /register, /.well-known/* discovery.
+  // clientSecretExpirySeconds:0 — non-expiring; the 30-day default would silently
+  // kill the connector in a month (designed-vs-deployed landmine).
+  app.use(
+    mcpAuthRouter({
+      provider,
+      issuerUrl,
+      baseUrl: issuerUrl,
+      resourceServerUrl,
+      scopesSupported: ['mcp:tools'],
+      clientRegistrationOptions: { clientSecretExpirySeconds: 0 }
+    })
+  )
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'brain-mcp', version: '1.0.0' })
   })
 
+  // RFC 9728 discovery: the 401 points OAuth clients at the protected-resource
+  // metadata, which the SDK mounts at /.well-known/oauth-protected-resource<rsPath>.
+  const resourceMetadataUrl = `${config.publicBaseUrl}/.well-known/oauth-protected-resource${resourceServerUrl.pathname}`
   app.use('/mcp', originMiddleware(allowed))
-  app.use('/mcp', authMiddleware(secret))
+  app.use('/mcp', combinedAuthMiddleware(config.secret, provider, resourceMetadataUrl))
 
   app.post('/mcp', async (req, res) => {
     const server = buildServer()
@@ -158,7 +204,7 @@ async function runHttp(): Promise<void> {
 
   const port = parseInt(process.env.MCP_PORT ?? '3001', 10) || 3001
   app.listen(port, () => {
-    console.log(`[brain-mcp] HTTP server listening on port ${port}`)
+    console.log(`[brain-mcp] HTTP server listening on port ${port} (Bearer + OAuth)`)
   })
 }
 
