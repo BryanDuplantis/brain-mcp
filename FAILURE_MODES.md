@@ -431,6 +431,30 @@ Local content scope: only what's specific to this project that isn't already cov
 
 ---
 
+## FM-15: OAuth refresh token compromise — non-rotating, manual revocation only (v1)
+
+**Severity:** Medium — a stolen refresh token grants indefinite access until manually revoked.
+
+**Symptom:** A leaked refresh token keeps minting fresh 1-hour access tokens with no expiry and no per-token revocation endpoint.
+
+**Cause:** v1 OAuth is deliberately non-rotating (build C scope decision; M2 in the 2026-05-30 security review). `provider.ts:exchangeRefreshToken` re-mints the access token and keeps the same refresh token. All client + refresh state persists at `~/.local/state/brain-mcp/oauth/{clients.json,refresh.json}` on the Pi.
+
+**Resolution — revocation drill (the G4 rotation trigger for the OAuth surface):**
+```bash
+# On suspected token/Pi compromise — invalidate ALL refresh tokens at once:
+rm ~/.local/state/brain-mcp/oauth/refresh.json
+# Optional: also rm clients.json to force claude.ai to re-run DCR registration.
+
+# Restart brain-mcp — SYSTEM scope, sudo required (see FM-11):
+sudo systemctl restart brain-mcp.service
+
+# Reconnect the claude.ai connector — it re-runs the password-gated consent
+# and registers a fresh client + refresh token.
+```
+**Positive signal:** the old refresh token returns `invalid_grant` at `/token`; a capture made from claude.ai recalls cleanly through the new grant. Companion to the `ENRICHER_ANTHROPIC_KEY` rotation drill. Refresh-on-use rotation is deferred to v2.
+
+---
+
 ## Adding New Failure Modes
 
 When a pattern appears for the second time:
