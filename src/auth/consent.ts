@@ -168,7 +168,13 @@ export function createConsentHandlers(config: ConsentConfig): ConsentHandlers {
 
   const cookieOpts = {
     httpOnly: true,
-    sameSite: 'lax' as const,
+    // 'strict' (not 'lax'): the consent cookie must never ride a cross-site
+    // navigation, or a crafted /authorize link from another origin could reuse
+    // a still-valid consent and skip the password gate (CSRF). The legit flow is
+    // unaffected — the password page sets the cookie same-site, and /authorize is
+    // only re-hit cross-site on a repeat authorization within TTL (rare; token
+    // refresh uses /token, not /authorize).
+    sameSite: 'strict' as const,
     secure: config.secureCookie,
     maxAge: COOKIE_TTL_MS,
     path: '/'
