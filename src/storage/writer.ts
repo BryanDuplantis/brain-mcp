@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 import matter from 'gray-matter'
 import { BRAIN_ROOT, brainFilePath } from './brain-path.js'
 import type {
@@ -178,7 +179,12 @@ export async function writeDocument(
   const serialized = matter.stringify(doc.content, frontmatter)
 
   const finalPath = brainFilePath(id)
-  const tmpPath = `${finalPath}.tmp`
+  // C2 (BACKLOG): unique tmp path per write. A shared `${finalPath}.tmp` lets two
+  // concurrent writers to the same id collide — the first `rename` consumes the
+  // staging file, the second hits ENOENT. Scoping the tmp name by pid+uuid means
+  // concurrent writers never share a staging file (last rename wins on finalPath,
+  // which is the existing CAS-guarded behavior). Hardens every brain-mcp caller.
+  const tmpPath = `${finalPath}.${process.pid}.${randomUUID()}.tmp`
 
   await fs.writeFile(tmpPath, serialized, 'utf8')
 

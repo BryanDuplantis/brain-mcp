@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { kebab, deriveTitle, makeId } from '../src/storage/writer.js'
+import { kebab, deriveTitle, makeId, writeDocument } from '../src/storage/writer.js'
+import { readDocument } from '../src/storage/reader.js'
 
 describe('kebab', () => {
   it('lowercases and hyphenates', () => {
@@ -38,5 +39,32 @@ describe('makeId', () => {
   it('strips punctuation from watchlist titles', () => {
     const id = makeId('watchlist', 'Spider-Man: Into the Spider-Verse')
     expect(id).toBe('watchlist-spider-man-into-the-spider-verse')
+  })
+})
+
+describe('writeDocument concurrent same-id (C2 — unique tmp path)', () => {
+  it('does not throw ENOENT when many writers race the same id', async () => {
+    const N = 30
+    const results = await Promise.allSettled(
+      Array.from({ length: N }, (_, i) =>
+        writeDocument({
+          content: `race body ${i}`,
+          type: 'watchlist',
+          title: 'Concurrent Race Target'
+        })
+      )
+    )
+    const enoent = results.filter(
+      (r) =>
+        r.status === 'rejected' &&
+        /ENOENT/.test(String((r as PromiseRejectedResult).reason))
+    )
+    // Shared `${finalPath}.tmp` would let one writer's rename consume the staging
+    // file out from under another → ENOENT. Unique per-write tmp ⇒ never.
+    expect(enoent).toHaveLength(0)
+    // The id is deterministic (watchlist = title-only) and the file is valid.
+    const doc = await readDocument(makeId('watchlist', 'Concurrent Race Target'))
+    expect(doc).toBeTruthy()
+    expect(doc?.content).toMatch(/race body/)
   })
 })
