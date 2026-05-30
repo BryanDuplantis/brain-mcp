@@ -84,24 +84,43 @@ function parseAllowedOrigins(raw: string): Set<string> {
   )
 }
 
+// Distinct browser Origins that passed while the allowlist was empty — logged
+// once each so the off-state is observable (not silent) and we can learn the real
+// client Origins before populating MCP_ALLOWED_ORIGINS to enforce (H1, Option A).
+const seenUnvalidatedOrigins = new Set<string>()
+
 /**
- * Origin allowlist for /mcp. The allowlist is REQUIRED (loadHttpConfig refuses to
- * boot without MCP_ALLOWED_ORIGINS), so `allowed` is never null — there is no
- * fail-open path where validation silently disappears (H1).
+ * Origin allowlist for /mcp. Behaviour by allowlist state (H1, Option A —
+ * "enforce when set, loud when empty"; never crash-boots, never silent):
  *
- * A present-but-unlisted Origin is rejected: this is the DNS-rebinding / browser
- * cross-site defense — a malicious page always sends its own, mismatched Origin.
- * A MISSING Origin is allowed through: non-browser MCP clients (native iOS/macOS
- * apps, the SDK HTTP client, Claude Code) don't send one and cannot mount a
- * browser cross-site attack. They stay gated by combinedAuthMiddleware (Bearer/
- * OAuth), mounted immediately after this. Rejecting missing-Origin would break
- * those live clients for no real security gain. A duplicated Origin header (array)
- * is abnormal and falls through to the 403.
+ *  - allowlist EMPTY  → origin validation is OFF, but LOUD: each distinct browser
+ *    Origin that passes is logged once (`origin-unvalidated`). This is the current
+ *    prod reality (MCP_ALLOWED_ORIGINS=""). Populate the env var to switch to
+ *    enforcement — no code change needed.
+ *  - allowlist SET    → present-but-unlisted Origin is rejected (the DNS-rebinding
+ *    / browser cross-site defense). Present-and-listed passes.
+ *
+ * A MISSING Origin always passes: non-browser MCP clients (native iOS/macOS apps,
+ * the SDK HTTP client, Claude Code) don't send one and can't mount a browser
+ * cross-site attack; they stay gated by combinedAuthMiddleware (Bearer/OAuth)
+ * mounted immediately after. A duplicated Origin header (array) is abnormal and
+ * falls through to the 403 when the allowlist is set.
  */
 function originMiddleware(allowed: Set<string>) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const origin = req.headers['origin']
     if (!origin) {
+      next()
+      return
+    }
+    if (allowed.size === 0) {
+      if (typeof origin === 'string' && !seenUnvalidatedOrigins.has(origin)) {
+        seenUnvalidatedOrigins.add(origin)
+        console.warn(
+          `[brain-mcp] origin-unvalidated: MCP_ALLOWED_ORIGINS empty — passed Origin=${origin}. ` +
+            'Add it (and any others) to MCP_ALLOWED_ORIGINS to enforce.'
+        )
+      }
       next()
       return
     }
@@ -136,7 +155,9 @@ function loadHttpConfig(): HttpConfig {
   if (!publicBaseUrl || !publicBaseUrl.trim()) missing.push('PUBLIC_BASE_URL')
   if (!authorizePassword || !authorizePassword.trim()) missing.push('OAUTH_AUTHORIZE_PASSWORD')
   if (!allowedRedirects || !allowedRedirects.trim()) missing.push('OAUTH_ALLOWED_REDIRECT_URIS')
-  if (!allowedOrigins || !allowedOrigins.trim()) missing.push('MCP_ALLOWED_ORIGINS')
+  // MCP_ALLOWED_ORIGINS is NOT required (H1, Option A): an empty value means
+  // origin validation is off — surfaced loudly at boot + per-Origin, not fatal.
+  // The Bearer/OAuth gate is the real boundary; origin checks are defense-in-depth.
 
   if (missing.length > 0) {
     console.error(
@@ -151,12 +172,19 @@ function loadHttpConfig(): HttpConfig {
     secret: secret as string,
     publicBaseUrl: (publicBaseUrl as string).replace(/\/+$/, ''),
     authorizePassword: authorizePassword as string,
-    allowedOrigins: parseAllowedOrigins(allowedOrigins as string)
+    allowedOrigins: parseAllowedOrigins(allowedOrigins ?? '')
   }
 }
 
 async function runHttp(): Promise<void> {
   const config = loadHttpConfig()
+  if (config.allowedOrigins.size === 0) {
+    console.warn(
+      '[brain-mcp] WARNING: MCP_ALLOWED_ORIGINS is empty — browser-Origin requests ' +
+        'pass UNVALIDATED (each distinct Origin logged once). Non-browser clients always ' +
+        'pass. Populate MCP_ALLOWED_ORIGINS to enforce the DNS-rebinding defense.'
+    )
+  }
   const app = express()
   // Only /mcp carries large bodies (capture content up to 100KB). The OAuth
   // routes (/token, DCR /register) take tiny payloads — cap them at 64KB so an
