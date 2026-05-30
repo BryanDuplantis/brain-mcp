@@ -158,7 +158,13 @@ function loadHttpConfig(): HttpConfig {
 async function runHttp(): Promise<void> {
   const config = loadHttpConfig()
   const app = express()
-  app.use(express.json({ limit: '4mb' }))
+  // Only /mcp carries large bodies (capture content up to 100KB). The OAuth
+  // routes (/token, DCR /register) take tiny payloads — cap them at 64KB so an
+  // oversized auth-endpoint body can't tie up the Pi's single event loop (L1).
+  // express.json is a no-op once req._body is set, so the /mcp-scoped 4MB parser
+  // wins for /mcp and the 64KB default applies to everything else.
+  app.use('/mcp', express.json({ limit: '4mb' }))
+  app.use(express.json({ limit: '64kb' }))
 
   const allowed = config.allowedOrigins
   const issuerUrl = new URL(config.publicBaseUrl)
