@@ -51,7 +51,11 @@ export function parseAllowedRedirectUris(): Set<string> {
 }
 
 async function atomicWriteJson(file: string, data: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(file), { recursive: true })
+  // mode 0o700 (L2): files are already 0o600, but the parent oauth state dir
+  // inherited the umask (often 0o755 → client IDs world-listable). 0o700 has no
+  // group/other bits so umask can't loosen it. NOTE: mkdir won't re-mode an
+  // already-existing dir — the live Pi dir needs a one-time `chmod 700` at deploy.
+  await fs.mkdir(path.dirname(file), { recursive: true, mode: 0o700 })
   const tmp = `${file}.tmp`
   await fs.writeFile(tmp, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 })
   await fs.rename(tmp, file)
