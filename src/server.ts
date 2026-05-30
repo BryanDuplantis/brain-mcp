@@ -75,9 +75,7 @@ function buildServer(): McpServer {
   return server
 }
 
-function parseAllowedOrigins(): Set<string> | null {
-  const raw = process.env.MCP_ALLOWED_ORIGINS
-  if (!raw || !raw.trim()) return null
+function parseAllowedOrigins(raw: string): Set<string> {
   return new Set(
     raw
       .split(',')
@@ -86,18 +84,28 @@ function parseAllowedOrigins(): Set<string> | null {
   )
 }
 
-function originMiddleware(allowed: Set<string> | null) {
+/**
+ * Origin allowlist for /mcp. The allowlist is REQUIRED (loadHttpConfig refuses to
+ * boot without MCP_ALLOWED_ORIGINS), so `allowed` is never null — there is no
+ * fail-open path where validation silently disappears (H1).
+ *
+ * A present-but-unlisted Origin is rejected: this is the DNS-rebinding / browser
+ * cross-site defense — a malicious page always sends its own, mismatched Origin.
+ * A MISSING Origin is allowed through: non-browser MCP clients (native iOS/macOS
+ * apps, the SDK HTTP client, Claude Code) don't send one and cannot mount a
+ * browser cross-site attack. They stay gated by combinedAuthMiddleware (Bearer/
+ * OAuth), mounted immediately after this. Rejecting missing-Origin would break
+ * those live clients for no real security gain. A duplicated Origin header (array)
+ * is abnormal and falls through to the 403.
+ */
+function originMiddleware(allowed: Set<string>) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (!allowed) {
-      next()
-      return
-    }
     const origin = req.headers['origin']
-    if (typeof origin === 'string' && allowed.has(origin)) {
+    if (!origin) {
       next()
       return
     }
-    if (!origin) {
+    if (typeof origin === 'string' && allowed.has(origin)) {
       next()
       return
     }
@@ -113,6 +121,7 @@ interface HttpConfig {
   secret: string
   publicBaseUrl: string
   authorizePassword: string
+  allowedOrigins: Set<string>
 }
 
 function loadHttpConfig(): HttpConfig {
@@ -120,12 +129,14 @@ function loadHttpConfig(): HttpConfig {
   const publicBaseUrl = process.env.PUBLIC_BASE_URL
   const authorizePassword = process.env.OAUTH_AUTHORIZE_PASSWORD
   const allowedRedirects = process.env.OAUTH_ALLOWED_REDIRECT_URIS
+  const allowedOrigins = process.env.MCP_ALLOWED_ORIGINS
 
   const missing: string[] = []
   if (!secret || !secret.trim()) missing.push('MCP_SECRET')
   if (!publicBaseUrl || !publicBaseUrl.trim()) missing.push('PUBLIC_BASE_URL')
   if (!authorizePassword || !authorizePassword.trim()) missing.push('OAUTH_AUTHORIZE_PASSWORD')
   if (!allowedRedirects || !allowedRedirects.trim()) missing.push('OAUTH_ALLOWED_REDIRECT_URIS')
+  if (!allowedOrigins || !allowedOrigins.trim()) missing.push('MCP_ALLOWED_ORIGINS')
 
   if (missing.length > 0) {
     console.error(
@@ -139,7 +150,8 @@ function loadHttpConfig(): HttpConfig {
   return {
     secret: secret as string,
     publicBaseUrl: (publicBaseUrl as string).replace(/\/+$/, ''),
-    authorizePassword: authorizePassword as string
+    authorizePassword: authorizePassword as string,
+    allowedOrigins: parseAllowedOrigins(allowedOrigins as string)
   }
 }
 
@@ -148,7 +160,7 @@ async function runHttp(): Promise<void> {
   const app = express()
   app.use(express.json({ limit: '4mb' }))
 
-  const allowed = parseAllowedOrigins()
+  const allowed = config.allowedOrigins
   const issuerUrl = new URL(config.publicBaseUrl)
   const resourceServerUrl = new URL(`${config.publicBaseUrl}/mcp`)
   const secureCookie = issuerUrl.protocol === 'https:'
