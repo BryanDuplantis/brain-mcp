@@ -9,6 +9,7 @@ import { captureHandler, captureInputSchema } from './tools/capture.js'
 import { searchHandler, searchInputSchema } from './tools/search.js'
 import { recallHandler, recallInputSchema } from './tools/recall.js'
 import { findHandler, findInputSchema } from './tools/find.js'
+import { deleteHandler, deleteInputSchema } from './tools/delete.js'
 import { FileOAuthProvider } from './auth/provider.js'
 import { FileClientStore } from './auth/store.js'
 import { combinedAuthMiddleware } from './auth/gate.js'
@@ -65,6 +66,19 @@ function buildServer(): McpServer {
     findInputSchema,
     async (args) => {
       const result = await findHandler(args)
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        structuredContent: result as unknown as Record<string, unknown>
+      }
+    }
+  )
+
+  server.tool(
+    'delete',
+    'PERMANENTLY delete a brain document by ID — removes its markdown file AND its ChromaDB chunks. IRREVERSIBLE. Requires confirm:true (a missing or false confirm is rejected with no deletion). Single-user destructive operation — never call speculatively; only on an explicit user request to delete a specific document.',
+    deleteInputSchema,
+    async (args) => {
+      const result = await deleteHandler(args)
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         structuredContent: result as unknown as Record<string, unknown>

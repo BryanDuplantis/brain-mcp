@@ -80,3 +80,13 @@ export interface RecallResult {
   document?: BrainDocument
   message?: string
 }
+
+export interface DeleteResult {
+  deleted: boolean
+  id: string
+  // Set on success — the unlinked markdown path.
+  path?: string
+  // Set on a non-deletion: why it didn't happen.
+  reason?: 'not_found' | 'index_delete_failed' | 'file_delete_failed'
+  message?: string
+}
