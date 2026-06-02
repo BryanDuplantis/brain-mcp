@@ -38,7 +38,7 @@ into ChromaDB. Any future Claude session — on any surface — can search or re
 - [ ] Streamable HTTP transport working (remote Claude apps via Tailscale Funnel)
 - [ ] Pi running ChromaDB 24/7 with persistent volume
 - [ ] Tailscale Funnel stable with HTTPS
-- [ ] Nightly rsync backup to Mac mini
+- [ ] Nightly rsync backup to Macbook M2
 
 ---
 
