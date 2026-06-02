@@ -15,7 +15,7 @@ export type { Enrichment, EnrichedEntry } from '../src/shared/index.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-const WATCHLIST_PATH = '/Users/bryanduplantis/Downloads/watchlist.md'
+const WATCHLIST_PATH = path.join(process.env.HOME ?? '', 'Downloads', 'watchlist.md')
 const OUT_PATH = path.join(__dirname, '..', 'scratch', 'watchlist-enriched.json')
 const MODEL = process.env.ANTHROPIC_PRIMARY_MODEL ?? 'claude-sonnet-4-6'
 const CONCURRENCY = 8

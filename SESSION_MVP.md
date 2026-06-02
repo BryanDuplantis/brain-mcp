@@ -330,7 +330,7 @@ git add -A && git commit -m "feat: MCP server stdio and Streamable HTTP transpor
       "command": "node",
       "args": ["dist/server.js"],
       "env": {
-        "BRAIN_DATA_DIR": "/Users/bryan/brain",
+        "BRAIN_DATA_DIR": "/Users/<user>/brain",
         "CHROMA_URL": "http://<pi-tailscale-ip>:8000",
         "VOYAGE_API_KEY": "<your-voyage-key>",
         "ANTHROPIC_PRIMARY_MODEL": "claude-sonnet-4-6"

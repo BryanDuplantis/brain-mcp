@@ -111,7 +111,7 @@ export async function parseWatchlist(path: string): Promise<WatchlistEntry[]> {
 
 // Standalone dry-run: print count + first 3 + collisions + sanity stats
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const path = process.argv[2] ?? '/Users/bryanduplantis/Downloads/watchlist.md'
+  const path = process.argv[2] ?? `${process.env.HOME ?? ''}/Downloads/watchlist.md`
   parseWatchlist(path).then((entries) => {
     const movies = entries.filter((e) => e.kind === 'movie').length
     const tv = entries.filter((e) => e.kind === 'tv').length

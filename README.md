@@ -123,8 +123,8 @@ Claude app connects through Funnel's public HTTPS URL — no VPN toggle needed.
 
 SSH into your Pi:
 ```bash
-ssh bryan@raspberrypi.local
-# or: ssh bryan@<pi-tailscale-ip>
+ssh <user>@raspberrypi.local
+# or: ssh <user>@<pi-tailscale-ip>
 ```
 
 **Install Node.js 20+:**
@@ -200,8 +200,8 @@ ANTHROPIC_PRIMARY_MODEL=claude-sonnet-4-6
 VOYAGE_API_KEY=your-voyage-key
 
 # Brain data directory
-BRAIN_DATA_DIR=/home/bryan/brain     # Pi
-# BRAIN_DATA_DIR=/Users/bryan/brain  # Mac (local dev)
+BRAIN_DATA_DIR=/home/<user>/brain     # Pi
+# BRAIN_DATA_DIR=/Users/<user>/brain  # Mac (local dev)
 
 # ChromaDB
 CHROMA_URL=http://localhost:8000
@@ -259,9 +259,9 @@ Requires=docker.service
 
 [Service]
 Type=simple
-User=bryan
-WorkingDirectory=/home/bryan/brain-mcp
-EnvironmentFile=/home/bryan/brain-mcp/.env.local
+User=<user>
+WorkingDirectory=/home/<user>/brain-mcp
+EnvironmentFile=/home/<user>/brain-mcp/.env.local
 ExecStart=/usr/bin/node dist/server.js --transport http
 Restart=on-failure
 RestartSec=10
@@ -292,7 +292,7 @@ Create `.mcp.json` in the repo root:
       "command": "node",
       "args": ["dist/server.js"],
       "env": {
-        "BRAIN_DATA_DIR": "/Users/bryan/brain",
+        "BRAIN_DATA_DIR": "/Users/<user>/brain",
         "CHROMA_URL": "http://<pi-tailscale-ip>:8000",
         "VOYAGE_API_KEY": "<your-voyage-key>",
         "ANTHROPIC_PRIMARY_MODEL": "claude-sonnet-4-6"
@@ -305,7 +305,7 @@ Create `.mcp.json` in the repo root:
 **Option B — User-scoped** (available across all your projects):
 ```bash
 claude mcp add --transport stdio brain-mcp \
-  --env BRAIN_DATA_DIR=/Users/bryan/brain \
+  --env BRAIN_DATA_DIR=/Users/<user>/brain \
   --env CHROMA_URL=http://<pi-tailscale-ip>:8000 \
   --env VOYAGE_API_KEY=<your-key> \
   -- node /absolute/path/to/brain-mcp/dist/server.js
@@ -361,12 +361,12 @@ All three must work from both transports before declaring setup complete.
 ```bash
 # Add to Pi crontab (crontab -e)
 # Nightly rsync to Mac mini at 2 AM
-0 2 * * * rsync -av --delete ~/brain/ bryan@mac-mini.local:/Users/bryan/brain-backup/
+0 2 * * * rsync -av --delete ~/brain/ <user>@mac-mini.local:/Users/<user>/brain-backup/
 ```
 
 Test the backup manually after setup:
 ```bash
-rsync -av ~/brain/ bryan@mac-mini.local:/Users/bryan/brain-backup/
+rsync -av ~/brain/ <user>@mac-mini.local:/Users/<user>/brain-backup/
 ```
 
 Run a restore drill monthly: confirm files on Mac mini are current and intact.

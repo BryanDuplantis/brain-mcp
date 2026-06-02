@@ -157,7 +157,7 @@ cat .mcp.json
       "command": "node",
       "args": ["dist/server.js"],
       "env": {
-        "BRAIN_DATA_DIR": "/Users/bryan/brain",
+        "BRAIN_DATA_DIR": "/Users/<user>/brain",
         "CHROMA_URL": "http://<pi-tailscale-ip>:8000",
         "VOYAGE_API_KEY": "<your-key>"
       }
@@ -232,11 +232,11 @@ ChromaDB Docker volume is usually the largest consumer after heavy ingestion.
 **Resolution:**
 ```bash
 ls -la ~/brain
-chown -R bryan:bryan ~/brain
+chown -R <user>:<user> ~/brain
 chmod -R 755 ~/brain
 ```
 
-Ensure `brain-mcp.service` has `User=bryan` set correctly.
+Ensure `brain-mcp.service` has `User=<user>` set correctly.
 
 ---
 
@@ -293,7 +293,7 @@ ChromaDB is re-ingestable from `~/brain/` — it is not the source of truth.
 **Prevention — nightly rsync to Mac mini:**
 ```bash
 # Add to crontab on Pi (crontab -e)
-0 2 * * * rsync -av --delete ~/brain/ bryan@mac-mini.local:/Users/bryan/brain-backup/
+0 2 * * * rsync -av --delete ~/brain/ <user>@mac-mini.local:/Users/<user>/brain-backup/
 ```
 
 Run restore drill monthly: confirm backup files exist and are current.
@@ -312,13 +312,13 @@ Run restore drill monthly: confirm backup files exist and are current.
 
 The brain-mcp server on the Pi runs as a **SYSTEM-scope** systemd unit (`brain-mcp.service`,
 NOT `--user`) — verified via F12 probe 2026-05-27. brain-enricher is **user-scope** (matches
-discord-trigger-router precedent). The two scopes need different restart commands; mixing
+the precedent of other user-scope services on the host). The two scopes need different restart commands; mixing
 them up silently no-ops.
 
 Pi-side directory layout (locked 2026-05-27 F12 probe — flat under home, NOT `~/Projects/`):
 - `~/brain-mcp/` (system-scope service)
 - `~/brain-enricher/` (user-scope service, planned)
-- `~/discord-trigger-router/` (user-scope service, existing precedent)
+- `~/<other-user-service>/` (user-scope service, existing precedent)
 
 ```bash
 # 1. Rebuild both repos on Mac
@@ -326,14 +326,14 @@ cd ~/Projects/brain-mcp && npm run build
 cd ~/Projects/brain-enricher && npm run build
 
 # 2. Deploy fresh dist to Pi (both repos rsync flat under home)
-rsync -av --delete ~/Projects/brain-mcp/dist/         brydup@<pi-ip>:~/brain-mcp/dist/
-rsync -av --delete ~/Projects/brain-enricher/dist/    brydup@<pi-ip>:~/brain-enricher/dist/
+rsync -av --delete ~/Projects/brain-mcp/dist/         <user>@<pi-ip>:~/brain-mcp/dist/
+rsync -av --delete ~/Projects/brain-enricher/dist/    <user>@<pi-ip>:~/brain-enricher/dist/
 
 # 3. Restart brain-mcp on Pi — SYSTEM scope, sudo required
-ssh -o ConnectTimeout=10 brydup@<pi-ip> 'sudo systemctl restart brain-mcp.service'
+ssh -o ConnectTimeout=10 <user>@<pi-ip> 'sudo systemctl restart brain-mcp.service'
 
 # 4. Restart brain-enricher on Pi — USER scope, no sudo
-ssh -o ConnectTimeout=10 brydup@<pi-ip> 'systemctl --user restart brain-enricher.service'
+ssh -o ConnectTimeout=10 <user>@<pi-ip> 'systemctl --user restart brain-enricher.service'
 
 # 5. Force Mac-side MCP client reconnect (stdio child-process module cache):
 #    - Claude Code: `/mcp` reconnect for brain-mcp

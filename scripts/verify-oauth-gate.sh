@@ -4,7 +4,7 @@
 # Exits non-zero on the first failed check. Self-cleans the server process.
 set -uo pipefail
 
-ROOT="/Users/bryanduplantis/Projects/brain-mcp"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PORT=3399
 BASE="http://localhost:${PORT}"
 REDIRECT="https://claude.ai/api/mcp/auth_callback"
