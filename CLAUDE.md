@@ -245,8 +245,7 @@ Before closing every session:
 ## Never/Always Rules
 
 - **ALWAYS** import `{ BRAIN_ROOT }` from `src/storage/brain-path.ts` — never hardcode `~/brain/`
-- **ALWAYS** use `.toISOString().slice(0, 10)` for date-only fields
-- **ALWAYS** use `.toISOString().slice(0, 16)` for datetime fields — never regex
+- **ALWAYS** stamp capture date/datetime fields via `zonedStamp(now)` in `src/storage/writer.ts` (explicit `America/New_York`), NOT `.toISOString()`. `toISOString()` is UTC, so an evening ET capture (past midnight UTC) rolled the date slug +1 day — see gotchas.md 2026-06-01. The slug, `created`, and `captured_at` must share the ET clock. Verbatim-override values (enricher 6a) pass through untouched — never round-trip them.
 - **ALWAYS** store documents before embedding — stored-but-not-embedded is recoverable; the reverse is not
 - **ALWAYS** return `SearchResponse` with `status` field from search — never a bare array
 - **ALWAYS** use Streamable HTTP for new remote transport code — never SSE

@@ -199,8 +199,10 @@ describe('captured_at seconds-precision round-trip (F6 + R-extra)', () => {
       title: 'CAS Precision',
       now
     })
-    // Writer should have stored seconds precision.
-    expect(document.captured_at).toBe('2026-05-27T14:32:07')
+    // Writer should have stored seconds precision, stamped in America/New_York
+    // (14:32:07 UTC === 10:32:07 EDT). The invariant under test is the 19-char
+    // precision + writer/reader equality, not the absolute clock.
+    expect(document.captured_at).toBe('2026-05-27T10:32:07')
     expect(document.captured_at.length).toBe(19)
 
     const read = await readDocument(document.id)
@@ -208,7 +210,7 @@ describe('captured_at seconds-precision round-trip (F6 + R-extra)', () => {
     // R-extra: reader.normalizeDateTime must also emit 19 chars; if it
     // truncated to 16, this assertion fails and CAS-compare in the worker
     // would compare unequal-length strings, aborting every write.
-    expect(read!.captured_at).toBe('2026-05-27T14:32:07')
+    expect(read!.captured_at).toBe('2026-05-27T10:32:07')
     expect(read!.captured_at.length).toBe(19)
 
     // The CAS-compare invariant: equal strings.

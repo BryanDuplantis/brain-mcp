@@ -12,6 +12,39 @@ import type {
 
 const KEBAB_MAX = 40
 
+/**
+ * brain-mcp runs on an America/New_York Pi. The date *slug* and the body
+ * timestamps must reflect the day Bryan actually wrote the note — not UTC.
+ * `Date.prototype.toISOString()` is always UTC, so a capture at e.g. 20:22 EDT
+ * (already past midnight UTC) rolled the slug a full day forward; any capture
+ * between ~8 PM and midnight ET landed on tomorrow's date. We format wall-clock
+ * date/datetime in an EXPLICIT IANA zone — not the system-local default — so a
+ * future host TZ change can't silently reintroduce the drift.
+ */
+const CAPTURE_TIME_ZONE = 'America/New_York'
+
+export function zonedStamp(
+  now: Date,
+  timeZone: string = CAPTURE_TIME_ZONE
+): { date: string; dateTime: string } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(now)
+  const v = (type: string): string =>
+    parts.find((p) => p.type === type)?.value ?? ''
+  const date = `${v('year')}-${v('month')}-${v('day')}`
+  // Matches the writer's prior 19-char emit: YYYY-MM-DDTHH:MM:SS
+  const dateTime = `${date}T${v('hour')}:${v('minute')}:${v('second')}`
+  return { date, dateTime }
+}
+
 export function kebab(input: string): string {
   return input
     .toLowerCase()
@@ -39,7 +72,7 @@ export function makeId(
 ): string {
   const slug = kebab(title) || 'untitled'
   if (type === 'watchlist') return `watchlist-${slug}`
-  const date = now.toISOString().slice(0, 10)
+  const date = zonedStamp(now).date
   return `${date}-${type}-${slug}`
 }
 
@@ -136,8 +169,11 @@ export async function writeDocument(
 
   // Verbatim timestamp preserve (6a): use supplied strings as-is; only derive
   // from `now` when not provided. No Date round-trip on the override path.
-  const created = input.created ?? now.toISOString().slice(0, 10)
-  const capturedAt = input.captured_at ?? now.toISOString().slice(0, 19)
+  // When derived, stamp in America/New_York (see zonedStamp) so the body
+  // timestamps share the slug's clock — never UTC.
+  const stamp = zonedStamp(now)
+  const created = input.created ?? stamp.date
+  const capturedAt = input.captured_at ?? stamp.dateTime
 
   const doc: BrainDocument = {
     id,

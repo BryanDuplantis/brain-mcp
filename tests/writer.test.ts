@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { kebab, deriveTitle, makeId, writeDocument } from '../src/storage/writer.js'
+import { kebab, deriveTitle, makeId, writeDocument, zonedStamp } from '../src/storage/writer.js'
 import { readDocument } from '../src/storage/reader.js'
 
 describe('kebab', () => {
@@ -39,6 +39,33 @@ describe('makeId', () => {
   it('strips punctuation from watchlist titles', () => {
     const id = makeId('watchlist', 'Spider-Man: Into the Spider-Verse')
     expect(id).toBe('watchlist-spider-man-into-the-spider-verse')
+  })
+})
+
+describe('date slug uses America/New_York, not UTC (evening crossover)', () => {
+  // 2026-06-01 20:22 EDT === 2026-06-02 00:22 UTC. The UTC path stamped the
+  // slug 2026-06-02 (tomorrow); ET must keep it 2026-06-01.
+  const eveningET = new Date('2026-06-02T00:22:00Z')
+
+  it('an 8:22 PM ET capture is dated today, not tomorrow', () => {
+    expect(makeId('note', 'Late Night Idea', eveningET)).toBe(
+      '2026-06-01-note-late-night-idea'
+    )
+  })
+
+  it('body created/captured_at share the slug clock (ET)', () => {
+    const stamp = zonedStamp(eveningET)
+    expect(stamp.date).toBe('2026-06-01')
+    expect(stamp.dateTime).toBe('2026-06-01T20:22:00')
+  })
+
+  it('a normal daytime capture is unaffected', () => {
+    // 14:05 EDT === 18:05 UTC — same day either way; the control case.
+    const middayET = new Date('2026-06-01T18:05:30Z')
+    expect(makeId('note', 'Midday Thought', middayET)).toBe(
+      '2026-06-01-note-midday-thought'
+    )
+    expect(zonedStamp(middayET).dateTime).toBe('2026-06-01T14:05:30')
   })
 })
 

@@ -39,6 +39,8 @@ describe('WriteInput verbatim timestamp preserve (6a)', () => {
   })
 
   it('falls back to now-derived timestamps when overrides absent', async () => {
+    // Now-derived timestamps are stamped in America/New_York: 09:00:05 UTC is
+    // 05:00:05 EDT (still the same calendar day, so `created` is unchanged).
     const now = new Date('2026-05-27T09:00:05.000Z')
     const { document } = await writeDocument({
       content: 'derived body',
@@ -46,7 +48,7 @@ describe('WriteInput verbatim timestamp preserve (6a)', () => {
       title: 'Derived',
       now
     })
-    expect(document.captured_at).toBe('2026-05-27T09:00:05')
+    expect(document.captured_at).toBe('2026-05-27T05:00:05')
     expect(document.created).toBe('2026-05-27')
   })
 })
