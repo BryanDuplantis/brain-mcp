@@ -47,7 +47,7 @@ into ChromaDB. Any future Claude session — on any surface — can search or re
 ### Prerequisites
 
 - Raspberry Pi 5 (8GB recommended)
-- Mac mini M4 (development + bulk ingestion)
+- MacBook M2 (development + bulk ingestion)
 - Node.js 20+ on both machines
 - Docker on the Pi (for ChromaDB)
 - Tailscale account (free tier sufficient)
