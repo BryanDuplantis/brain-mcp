@@ -67,13 +67,68 @@ function timingSafeStrEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(ab, bb)
 }
 
-function signConsent(key: string, now: number = Date.now()): string {
-  const payload = Buffer.from(JSON.stringify({ exp: now + COOKIE_TTL_MS })).toString('base64url')
+/**
+ * The three OAuth `/authorize` params the consent cookie is bound to (H-1 fix).
+ * A cookie minted for one set of params must not authorize a different set
+ * within the TTL — that was the H-1 gap (cookie carried only `{exp}`).
+ */
+export interface ConsentParams {
+  client_id: string
+  redirect_uri: string
+  code_challenge: string
+}
+
+/**
+ * Canonical binding string for the consent cookie.
+ *
+ * `JSON.stringify` of a FIXED-ORDER array (not a concat, not key-ordered object):
+ *  - stable     — positional, never depends on object key iteration order;
+ *  - collision-free — the array delimiters can't be forged by field content the way
+ *                     a naive `a + b` concat can (`"x"+"yz"` === `"xy"+"z"`);
+ *  - empty/null-safe — an absent param is normalized to `''` by extractParams, so
+ *                      omitting `code_challenge` yields a DISTINCT canonical string,
+ *                      never a silent pass.
+ * Changing this shape/order invalidates every live cookie — intended.
+ */
+function canonicalParams(params: ConsentParams): string {
+  return JSON.stringify([params.client_id, params.redirect_uri, params.code_challenge])
+}
+
+/**
+ * Pull the three bound params out of a query/body bag, coercing each to a string
+ * (`''` if missing or non-string). Same normalization at mint (submit, from the
+ * POST body) and verify (gate, from req.query) so the canonical strings match.
+ */
+function extractParams(source: Record<string, unknown> | undefined): ConsentParams {
+  const get = (k: string): string => {
+    const v = source?.[k]
+    return typeof v === 'string' ? v : ''
+  }
+  return {
+    client_id: get('client_id'),
+    redirect_uri: get('redirect_uri'),
+    code_challenge: get('code_challenge')
+  }
+}
+
+function signConsent(key: string, params: ConsentParams, now: number = Date.now()): string {
+  const paramsHash = crypto
+    .createHmac('sha256', key)
+    .update(canonicalParams(params))
+    .digest('base64url')
+  const payload = Buffer.from(
+    JSON.stringify({ exp: now + COOKIE_TTL_MS, paramsHash })
+  ).toString('base64url')
   const mac = crypto.createHmac('sha256', key).update(payload).digest('base64url')
   return `${payload}.${mac}`
 }
 
-function verifyConsent(key: string, value: string | undefined, now: number = Date.now()): boolean {
+function verifyConsent(
+  key: string,
+  value: string | undefined,
+  params: ConsentParams,
+  now: number = Date.now()
+): boolean {
   if (!value) return false
   const dot = value.indexOf('.')
   if (dot === -1) return false
@@ -84,8 +139,17 @@ function verifyConsent(key: string, value: string | undefined, now: number = Dat
   try {
     const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
       exp?: number
+      paramsHash?: string
     }
-    return typeof parsed.exp === 'number' && parsed.exp > now
+    if (typeof parsed.exp !== 'number' || parsed.exp <= now) return false
+    if (typeof parsed.paramsHash !== 'string') return false
+    // Re-derive the binding from the params presented on THIS request and compare
+    // timing-safe. Mismatch → cookie was minted for a different /authorize request.
+    const expectedHash = crypto
+      .createHmac('sha256', key)
+      .update(canonicalParams(params))
+      .digest('base64url')
+    return timingSafeStrEqual(parsed.paramsHash, expectedHash)
   } catch {
     return false
   }
@@ -182,15 +246,17 @@ export function createConsentHandlers(config: ConsentConfig): ConsentHandlers {
 
   const gate: RequestHandler = (req: Request, res: Response, next: NextFunction): void => {
     const cookies = parseCookies(req.headers.cookie)
-    if (verifyConsent(config.cookieKey, cookies[COOKIE_NAME])) {
+    // Real OAuth `/authorize` is GET — bind/verify against req.query. (The old
+    // `req.method === 'POST' ? req.body : ...` branch was dead: /authorize has no
+    // body parser, only /authorize/consent does, so the POST branch saw {}.)
+    if (verifyConsent(config.cookieKey, cookies[COOKIE_NAME], extractParams(req.query))) {
       next()
       return
     }
-    // No valid consent → render the password form, preserving OAuth params so
-    // the post-consent redirect can rebuild the /authorize request.
-    const source = (req.method === 'POST' ? req.body : req.query) as Record<string, unknown>
+    // No valid consent → render the password form, preserving ALL OAuth params as
+    // hidden fields so the post-consent redirect can rebuild the /authorize request.
     const params: Record<string, string> = {}
-    for (const [k, v] of Object.entries(source ?? {})) {
+    for (const [k, v] of Object.entries(req.query ?? {})) {
       if (k === 'password') continue
       if (typeof v === 'string') params[k] = v
     }
@@ -225,7 +291,10 @@ export function createConsentHandlers(config: ConsentConfig): ConsentHandlers {
     }
 
     failures.reset()
-    res.cookie(COOKIE_NAME, signConsent(config.cookieKey), cookieOpts)
+    // Bind the cookie to the three OAuth params from this form POST. The redirect
+    // below re-issues /authorize with exactly these params, so gate's verify (off
+    // req.query) recomputes the identical binding and passes.
+    res.cookie(COOKIE_NAME, signConsent(config.cookieKey, extractParams(body)), cookieOpts)
     const qs = new URLSearchParams(params).toString()
     res.redirect(`/authorize${qs ? `?${qs}` : ''}`)
   }
@@ -234,4 +303,12 @@ export function createConsentHandlers(config: ConsentConfig): ConsentHandlers {
 }
 
 // Exposed for unit tests.
-export const __test = { signConsent, verifyConsent, timingSafeStrEqual, parseCookies, FailureWindow }
+export const __test = {
+  signConsent,
+  verifyConsent,
+  canonicalParams,
+  extractParams,
+  timingSafeStrEqual,
+  parseCookies,
+  FailureWindow
+}

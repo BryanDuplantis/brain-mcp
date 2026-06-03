@@ -328,27 +328,36 @@ describe('FileOAuthProvider', () => {
 
 describe('consent cookie + rate limiting', () => {
   const KEY = 'cookie-signing-key'
+  // H-1: signConsent/verifyConsent now bind to OAuth params. These pre-existing
+  // tests pass a CONSISTENT params object on both sides so they keep isolating
+  // mac-tamper / expiry / wrong-key. Param-mismatch rejection is covered in
+  // tests/consent.test.ts.
+  const PARAMS = {
+    client_id: 'client-1',
+    redirect_uri: 'https://claude.ai/api/mcp/auth_callback',
+    code_challenge: 'abc123'
+  }
 
   it('signs and verifies a consent cookie', () => {
     const now = 1_000_000
-    const cookie = consent.signConsent(KEY, now)
-    expect(consent.verifyConsent(KEY, cookie, now + 1000)).toBe(true)
+    const cookie = consent.signConsent(KEY, PARAMS, now)
+    expect(consent.verifyConsent(KEY, cookie, PARAMS, now + 1000)).toBe(true)
   })
 
   it('rejects a tampered cookie', () => {
-    const cookie = consent.signConsent(KEY, 1_000_000)
-    expect(consent.verifyConsent(KEY, cookie + 'x', 1_000_001)).toBe(false)
+    const cookie = consent.signConsent(KEY, PARAMS, 1_000_000)
+    expect(consent.verifyConsent(KEY, cookie + 'x', PARAMS, 1_000_001)).toBe(false)
   })
 
   it('rejects an expired cookie', () => {
     const now = 1_000_000
-    const cookie = consent.signConsent(KEY, now)
-    expect(consent.verifyConsent(KEY, cookie, now + 10 * 60_000)).toBe(false)
+    const cookie = consent.signConsent(KEY, PARAMS, now)
+    expect(consent.verifyConsent(KEY, cookie, PARAMS, now + 10 * 60_000)).toBe(false)
   })
 
   it('rejects a cookie signed with a different key', () => {
-    const cookie = consent.signConsent(KEY, 1_000_000)
-    expect(consent.verifyConsent('other-key', cookie, 1_000_001)).toBe(false)
+    const cookie = consent.signConsent(KEY, PARAMS, 1_000_000)
+    expect(consent.verifyConsent('other-key', cookie, PARAMS, 1_000_001)).toBe(false)
   })
 
   it('parses a Cookie header', () => {
