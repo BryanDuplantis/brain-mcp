@@ -111,6 +111,11 @@ function extractParams(source: Record<string, unknown> | undefined): ConsentPara
   }
 }
 
+// Note: the inner paramsHash is a style choice, not a strict requirement.
+// The canonical string could be folded directly into the signed payload
+// alongside `exp` with identical security properties. The nesting is kept
+// for explicitness — outer mac = tamper-evidence, inner paramsHash = param
+// binding — but a future refactor may flatten this without loss of security.
 function signConsent(key: string, params: ConsentParams, now: number = Date.now()): string {
   const paramsHash = crypto
     .createHmac('sha256', key)
@@ -180,6 +185,10 @@ function renderForm(
   params: Record<string, string>,
   opts: { error?: boolean } = {}
 ): void {
+  // Note: hidden form fields are not signed by the server. Form-body
+  // manipulation is out of scope for H-1's threat model; sameSite=strict
+  // is the load-bearing CSRF defense. This surface is documented so the
+  // threat boundary is explicit for future readers.
   const hidden = Object.entries(params)
     .map(
       ([k, v]) =>
