@@ -242,6 +242,14 @@ Before closing every session:
 
 ---
 
+## Architectural Decision Capture
+
+During any implementation session, capture non-obvious architectural decisions to brain-mcp
+with type: "decision", tags: ["arch-review", "<project-tag>"]. Do not pause to ask; capture
+and proceed. Review happens via claude.ai.
+
+---
+
 ## Never/Always Rules
 
 - **ALWAYS** import `{ BRAIN_ROOT }` from `src/storage/brain-path.ts` — never hardcode `~/brain/`
