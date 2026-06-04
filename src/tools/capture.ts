@@ -12,7 +12,7 @@ export const captureInputSchema = {
   // labels — so legit captures never hit these; they only stop pathological input.
   title: z.string().max(1000, 'title exceeds 1000 chars').optional(),
   tags: z.array(z.string().max(100, 'tag exceeds 100 chars')).max(50, 'too many tags').optional(),
-  source: z.enum(['ios', 'macos', 'claude.ai', 'claude-code', 'bulk', 'unknown']).optional(),
+  source: z.enum(['ios', 'macos', 'claude.ai', 'claude-code', 'hermes', 'bulk', 'unknown']).optional(),
   // D2-A "four questions" — structured watchlist fields. Optional and meaningful
   // only for type === 'watchlist' (the writer ignores them for other types).
   // Unlike `enrichment_override`, these ARE part of the public schema: they are

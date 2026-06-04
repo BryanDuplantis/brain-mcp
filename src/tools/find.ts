@@ -15,6 +15,7 @@ const SOURCES = [
   'macos',
   'claude.ai',
   'claude-code',
+  'hermes',
   'bulk',
   'unknown'
 ] as const

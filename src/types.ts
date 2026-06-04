@@ -26,6 +26,7 @@ export type CaptureSource =
   | 'macos'
   | 'claude.ai'
   | 'claude-code'
+  | 'hermes'
   | 'bulk'
   | 'unknown'
 

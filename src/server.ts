@@ -12,10 +12,21 @@ import { findHandler, findInputSchema } from './tools/find.js'
 import { deleteHandler, deleteInputSchema } from './tools/delete.js'
 import { FileOAuthProvider } from './auth/provider.js'
 import { FileClientStore } from './auth/store.js'
-import { combinedAuthMiddleware } from './auth/gate.js'
+import { combinedAuthMiddleware, type AuthedRequest } from './auth/gate.js'
 import { createConsentHandlers } from './auth/consent.js'
 
-function buildServer(): McpServer {
+/**
+ * Build the MCP server. `allowDelete` (default true) gates registration of the
+ * destructive `delete` tool: a delete-excluded principal (the Hermes agent,
+ * authenticated via MCP_SECRET_HERMES — see gate.ts) gets a server where `delete`
+ * is never registered, so it is absent from `tools/list` and a `tools/call delete`
+ * returns the SDK's natural MethodNotFound. Least-privilege at the surface — the
+ * capability is not advertised, not merely refused at runtime.
+ *
+ * The local stdio path (Claude Code) calls buildServer() with the default → full
+ * trust, delete present. The HTTP path computes the flag per-request from the gate.
+ */
+function buildServer({ allowDelete = true }: { allowDelete?: boolean } = {}): McpServer {
   const server = new McpServer({
     name: 'brain-mcp',
     version: '1.0.0'
@@ -73,18 +84,22 @@ function buildServer(): McpServer {
     }
   )
 
-  server.tool(
-    'delete',
-    'PERMANENTLY delete a brain document by ID — removes its markdown file AND its ChromaDB chunks. IRREVERSIBLE. Requires confirm:true (a missing or false confirm is rejected with no deletion). Single-user destructive operation — never call speculatively; only on an explicit user request to delete a specific document.',
-    deleteInputSchema,
-    async (args) => {
-      const result = await deleteHandler(args)
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-        structuredContent: result as unknown as Record<string, unknown>
+  // Registered ONLY for delete-allowed principals. A delete-excluded caller (Hermes)
+  // gets a server without this tool — absent from tools/list, MethodNotFound on call.
+  if (allowDelete) {
+    server.tool(
+      'delete',
+      'PERMANENTLY delete a brain document by ID — removes its markdown file AND its ChromaDB chunks. IRREVERSIBLE. Requires confirm:true (a missing or false confirm is rejected with no deletion). Single-user destructive operation — never call speculatively; only on an explicit user request to delete a specific document.',
+      deleteInputSchema,
+      async (args) => {
+        const result = await deleteHandler(args)
+        return {
+          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          structuredContent: result as unknown as Record<string, unknown>
+        }
       }
-    }
-  )
+    )
+  }
 
   return server
 }
@@ -155,6 +170,9 @@ interface HttpConfig {
   publicBaseUrl: string
   authorizePassword: string
   allowedOrigins: Set<string>
+  // Optional second static Bearer credential for the delete-excluded Hermes
+  // principal. Undefined when MCP_SECRET_HERMES is unset (no restricted principal).
+  restrictedSecret?: string
 }
 
 function loadHttpConfig(): HttpConfig {
@@ -163,6 +181,7 @@ function loadHttpConfig(): HttpConfig {
   const authorizePassword = process.env.OAUTH_AUTHORIZE_PASSWORD
   const allowedRedirects = process.env.OAUTH_ALLOWED_REDIRECT_URIS
   const allowedOrigins = process.env.MCP_ALLOWED_ORIGINS
+  const restrictedRaw = process.env.MCP_SECRET_HERMES
 
   const missing: string[] = []
   if (!secret || !secret.trim()) missing.push('MCP_SECRET')
@@ -172,6 +191,8 @@ function loadHttpConfig(): HttpConfig {
   // MCP_ALLOWED_ORIGINS is NOT required (H1, Option A): an empty value means
   // origin validation is off — surfaced loudly at boot + per-Origin, not fatal.
   // The Bearer/OAuth gate is the real boundary; origin checks are defense-in-depth.
+  // MCP_SECRET_HERMES is also NOT required (enforce-when-set, PM-8): unset means no
+  // restricted principal — every authenticated caller is full/delete-allowed.
 
   if (missing.length > 0) {
     console.error(
@@ -181,12 +202,25 @@ function loadHttpConfig(): HttpConfig {
     process.exit(1)
   }
 
+  // Restricted secret, when set, MUST differ from the full secret. The gate checks
+  // the full secret FIRST, so an equal value would authenticate as the full
+  // principal and silently grant delete — defeating the scope. Fail closed at boot.
+  const restrictedSecret = restrictedRaw && restrictedRaw.trim() ? restrictedRaw : undefined
+  if (restrictedSecret && restrictedSecret === secret) {
+    console.error(
+      '[brain-mcp] FATAL: MCP_SECRET_HERMES must differ from MCP_SECRET. An equal ' +
+        'value matches the full-secret path first and silently grants delete. Refusing to start.'
+    )
+    process.exit(1)
+  }
+
   // Validated above.
   return {
     secret: secret as string,
     publicBaseUrl: (publicBaseUrl as string).replace(/\/+$/, ''),
     authorizePassword: authorizePassword as string,
-    allowedOrigins: parseAllowedOrigins(allowedOrigins ?? '')
+    allowedOrigins: parseAllowedOrigins(allowedOrigins ?? ''),
+    restrictedSecret
   }
 }
 
@@ -247,11 +281,21 @@ async function runHttp(): Promise<void> {
   // RFC 9728 discovery: the 401 points OAuth clients at the protected-resource
   // metadata, which the SDK mounts at /.well-known/oauth-protected-resource<rsPath>.
   const resourceMetadataUrl = `${config.publicBaseUrl}/.well-known/oauth-protected-resource${resourceServerUrl.pathname}`
+  if (config.restrictedSecret) {
+    console.log(
+      '[brain-mcp] scoped principal active: MCP_SECRET_HERMES authenticates with ' +
+        'delete EXCLUDED (delete tool not registered for that caller).'
+    )
+  }
   app.use('/mcp', originMiddleware(allowed))
-  app.use('/mcp', combinedAuthMiddleware(config.secret, provider, resourceMetadataUrl))
+  app.use('/mcp', combinedAuthMiddleware(config.secret, provider, resourceMetadataUrl, config.restrictedSecret))
 
   app.post('/mcp', async (req, res) => {
-    const server = buildServer()
+    // The gate stamped allowDelete on the request (false only for the restricted
+    // Hermes principal). Default true when unset so a non-restricted caller is
+    // never accidentally stripped of delete.
+    const allowDelete = (req as AuthedRequest).allowDelete !== false
+    const server = buildServer({ allowDelete })
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined
     })

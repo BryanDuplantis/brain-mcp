@@ -22,13 +22,24 @@ import type { OAuthTokenVerifier } from '@modelcontextprotocol/sdk/server/auth/p
  * OAuth client (claude.ai) follows from an unauthenticated /mcp request to find
  * the authorization server. The SDK's requireBearerAuth does this automatically;
  * our hand-rolled gate must do it too or live DCR discovery silently 404s.
+ *
+ * `restrictedSecret` (optional) is a SECOND static Bearer credential for a
+ * delete-excluded principal (the Hermes agent). It authenticates exactly like the
+ * full `secret` — same timing-safe path — but the gate stamps `req.allowDelete =
+ * false` so `app.post('/mcp')` builds a server WITHOUT the `delete` tool for that
+ * caller (least-privilege: the destructive capability is never even advertised to
+ * Hermes). The full `secret` and the OAuth path both stamp `allowDelete = true`.
  */
+export type AuthedRequest = Request & { auth?: unknown; allowDelete?: boolean }
+
 export function combinedAuthMiddleware(
   secret: string,
   verifier: OAuthTokenVerifier,
-  resourceMetadataUrl?: string
+  resourceMetadataUrl?: string,
+  restrictedSecret?: string
 ): RequestHandler {
   const expected = `Bearer ${secret}`
+  const restrictedExpected = restrictedSecret ? `Bearer ${restrictedSecret}` : undefined
   const wwwAuth = (errorCode: string, description: string): string => {
     let header = `Bearer error="${errorCode}", error_description="${description}"`
     if (resourceMetadataUrl) header += `, resource_metadata="${resourceMetadataUrl}"`
@@ -42,20 +53,35 @@ export function combinedAuthMiddleware(
       return
     }
 
-    // 1. Static MCP_SECRET path (cheap, constant-time, no async).
+    // 1. Static MCP_SECRET path — full principal (cheap, constant-time, no async).
     if (
       auth.length === expected.length &&
       crypto.timingSafeEqual(Buffer.from(auth), Buffer.from(expected))
     ) {
+      ;(req as AuthedRequest).allowDelete = true
       next()
       return
     }
 
-    // 2. OAuth access token path (only reached when the static path misses).
+    // 1b. Static restricted-secret path — delete-excluded principal (Hermes).
+    // Same timing-safe shape; length-guarded so a wrong-length token can't throw.
+    if (
+      restrictedExpected &&
+      auth.length === restrictedExpected.length &&
+      crypto.timingSafeEqual(Buffer.from(auth), Buffer.from(restrictedExpected))
+    ) {
+      ;(req as AuthedRequest).allowDelete = false
+      next()
+      return
+    }
+
+    // 2. OAuth access token path (only reached when the static paths miss).
+    // claude.ai is Bryan's own connector — full principal, delete allowed.
     const token = auth.slice('Bearer '.length)
     try {
       const info = await verifier.verifyAccessToken(token)
-      ;(req as Request & { auth?: unknown }).auth = info
+      ;(req as AuthedRequest).auth = info
+      ;(req as AuthedRequest).allowDelete = true
       next()
       return
     } catch {
