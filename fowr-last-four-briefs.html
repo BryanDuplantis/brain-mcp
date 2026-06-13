@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FoWR — Last Four Briefs</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --accent: #e8b84b;
+    --accent-dim: #7a5f1a;
+    --text: #d4d8e8;
+    --text-dim: #7a7f96;
+    --text-bright: #f0f2ff;
+    --tag-bg: #1f2335;
+    --tag-border: #3a3f5a;
+    --high: #4ade80;
+    --med: #facc15;
+    --low: #f87171;
+    --flash: #60a5fa;
+    --full: #a78bfa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    line-height: 1.7;
+    padding: 2rem 1rem;
+  }
+
+  .masthead {
+    max-width: 860px;
+    margin: 0 auto 3rem;
+    border-bottom: 1px solid var(--accent-dim);
+    padding-bottom: 1.5rem;
+  }
+
+  .masthead-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .masthead h1 {
+    font-size: 2rem;
+    color: var(--text-bright);
+    font-weight: normal;
+    letter-spacing: -0.02em;
+  }
+
+  .masthead .sub {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-top: 0.4rem;
+    font-family: 'Courier New', monospace;
+  }
+
+  .briefs-grid {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+  }
+
+  .brief-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .brief-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .day-badge {
+    font-family: 'Courier New', monospace;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent);
+    min-width: 80px;
+    line-height: 1;
+  }
+
+  .brief-meta {
+    flex: 1;
+  }
+
+  .brief-title {
+    font-size: 1.15rem;
+    color: var(--text-bright);
+    font-weight: normal;
+    margin-bottom: 0.3rem;
+  }
+
+  .brief-date {
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .brief-type {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.55rem;
+    border-radius: 3px;
+    align-self: flex-start;
+  }
+
+  .brief-type.flash {
+    background: rgba(96,165,250,0.12);
+    border: 1px solid rgba(96,165,250,0.35);
+    color: var(--flash);
+  }
+
+  .brief-type.full {
+    background: rgba(167,139,250,0.12);
+    border: 1px solid rgba(167,139,250,0.35);
+    color: var(--full);
+  }
+
+  .brief-body {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .thesis-block {
+    background: rgba(232,184,75,0.06);
+    border-left: 3px solid var(--accent);
+    padding: 0.9rem 1.1rem;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.95rem;
+    color: var(--text-bright);
+    font-style: italic;
+  }
+
+  .section-label {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .section-content {
+    font-size: 0.9rem;
+    color: var(--text);
+    line-height: 1.75;
+  }
+
+  .section-content ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .section-content ul li {
+    padding-left: 1.2rem;
+    position: relative;
+    margin-bottom: 0.45rem;
+  }
+
+  .section-content ul li::before {
+    content: '—';
+    position: absolute;
+    left: 0;
+    color: var(--text-dim);
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+
+  .section-block {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .open-items {
+    background: rgba(248,113,113,0.05);
+    border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 4px;
+    padding: 1rem 1.1rem;
+  }
+
+  .open-items .section-label {
+    color: var(--low);
+  }
+
+  .gotchas {
+    background: rgba(250,204,21,0.04);
+    border: 1px solid rgba(250,204,21,0.15);
+    border-radius: 4px;
+    padding: 1rem 1.1rem;
+  }
+
+  .gotchas .section-label {
+    color: var(--med);
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding-top: 0.25rem;
+  }
+
+  .tag {
+    font-family: 'Courier New', monospace;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+    background: var(--tag-bg);
+    border: 1px solid var(--tag-border);
+    border-radius: 3px;
+    color: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  .brief-footer {
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .footer-id {
+    font-family: 'Courier New', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  hr.section-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.25rem 0;
+  }
+
+  @media (max-width: 600px) {
+    .two-col { grid-template-columns: 1fr; }
+    .brief-header { gap: 0.75rem; }
+    .day-badge { font-size: 1.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="masthead-label">Fog of War Room · Brain MCP</div>
+  <h1>Last Four Briefs</h1>
+  <div class="sub">Generated 2026-06-13 · Days 100, 101, 103, 105</div>
+</div>
+
+<div class="briefs-grid">
+
+  <!-- ═══════════════════════════════════════════════════════ DAY 105 -->
+  <div class="brief-card">
+    <div class="brief-header">
+      <div class="day-badge">D·105</div>
+      <div class="brief-meta">
+        <div class="brief-title">FoWR Day 105 — June 12, 2026</div>
+        <div class="brief-date">captured 2026-06-12T20:14:46 ET · claude-code</div>
+      </div>
+      <span class="brief-type full">Full</span>
+    </div>
+
+    <div class="brief-body">
+      <div class="thesis-block">
+        The war hit its loudest week and quietest night inside 48 hours, but the "very close" deal is a 60-day pause deferring nuclear/sanctions/Hormuz-control/Lebanon to a round-two that hasn't started — three principals describing three different documents, and the insurance market refusing to price the peace.
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">What shipped</span>
+        <div class="section-content">
+          <ul>
+            <li>7 sections: Diplomatic / Kinetic / Economic Chokepoints / Insurance / Succession+Negotiator Composition / Alliance Friction / Humanitarian-Legal</li>
+            <li>38 confidence-flagged claims — 31 HIGH / 5 MED / 2 LOW — 0 NEEDS-URL markers</li>
+            <li>8 parallel verification subagents (7 + 1 insurance follow-on)</li>
+            <li>Rendered HTML, cover generated, published to Cloudflare Pages (302-verified), #fowr alerted, tracker updated</li>
+            <li>Market correction applied: Day-90 locked war-risk premium 3–8% of vessel value replaced draft's understated 0.5–1.5% → re-rendered + re-pushed</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">Key decisions</span>
+        <div class="section-content">
+          <ul>
+            <li>Treated Day 104 flash #2 as "earlier capture" — no 6/12 sources dir existed; flash #2 carried freshest pre-pivot intel</li>
+            <li>Dropped Vance "pallets of cash" as a quote (verifier: not in his post → editorial gloss only)</li>
+            <li>Held water-facility "war crime" intent as UNKNOWN (Press TV info-ops vector)</li>
+            <li>Vawda "Munir's personal laptop" = LOW single-source; Sharif "final text" = statement-confirmed-but-claim-contradicted</li>
+            <li>Insurance Market Mechanics made sharpest structural read: signature reopens Hormuz politically but not commercially; AWRP fastest but hasn't fallen; JWC/P&amp;I lag on independent clocks</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="gotchas section-block">
+          <span class="section-label">Gotchas</span>
+          <div class="section-content">
+            <ul>
+              <li>Day-104-flash "NEW BASELINE CONFLICT" on Ghalibaf-as-lead was NOT real — row 87 already locked Ghalibaf = chief negotiator, superseding Day-56 Araghchi-lead baseline. Flash author missed existing lock.</li>
+              <li>Flash #2 midday Brent ~$93.5–95 did NOT hold to close; June 11 close ~$89/$86.50. June 12 anchor = mid-$80s (oil −3–4%, S&amp;P record 7,431.46)</li>
+              <li><code>fowr-cover.sh</code> exits 1 cosmetically for 3-digit day numbers — artifact is fine; both JPEG 62.8K + SVG created</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="open-items section-block">
+          <span class="section-label">Still open</span>
+          <div class="section-content">
+            <ul>
+              <li>Draft — Bryan reviews before Substack publish (section ID 371665; upload covers/FoWR_Day105_cover.jpg)</li>
+              <li>Weekend watch: signature vs evaporation (Geneva/Sunday possible, Vance + Ghalibaf signatories); Lebanon blowing the framework; 4th strike night if signature slips</li>
+              <li>Tracker structured tables lag to ~Day 90–94; full-section maintenance drifted behind dated-entry layer</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brief-footer">
+      <div class="footer-id">2026-06-12-session-fowr-day-105-full-briefing</div>
+      <div class="tags">
+        <span class="tag">fog-of-war-room</span>
+        <span class="tag">session-recap</span>
+        <span class="tag">briefing-workflow</span>
+        <span class="tag">substack-publish</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ DAY 103 -->
+  <div class="brief-card">
+    <div class="brief-header">
+      <div class="day-badge">D·103</div>
+      <div class="brief-meta">
+        <div class="brief-title">FoWR Day 103 — June 10, 2026</div>
+        <div class="brief-date">captured 2026-06-10T17:37:14 ET · claude-code</div>
+      </div>
+      <span class="brief-type full">Full</span>
+    </div>
+
+    <div class="brief-body">
+      <div class="thesis-block">
+        "The war's two ledgers pull apart" — disciplined operational day (Settebello = 8th vessel disabled, first seafarer casualties; IAEA 21–3 resolution; 13+9 sanctions; CPI 4.2%) vs a presser that missed on all five checkable claims ($85 oil, "secret mission," "Iran admitted," "fully negotiated," "48 minutes").
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">What shipped</span>
+        <div class="section-content">
+          <ul>
+            <li>Source pile: NYT live blog + full Trump presser transcript; 7 parallel Explore verification subagents</li>
+            <li>Archive at <code>~/cowork/02_fog_of_war/FoWR_Day103_2026_06_10.md</code>; HTML rendered and opened locally</li>
+            <li>Cover JPEG at <code>covers/FoWR_Day103_cover.jpg</code>; tracker updated</li>
+            <li>Delivery: LOCAL HTML ONLY per Bryan — no Pages push, no #fowr alert</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">Key decisions</span>
+        <div class="section-content">
+          <ul>
+            <li>Held announced Wednesday-night strike package as ANNOUNCED-NOT-EXECUTED — no CENTCOM release at pin time; one subagent's "strikes commenced 5pm ET Wed" rejected as conflation with Tuesday's package</li>
+            <li>NEW tracker baseline: Operation Absolute Resolve (Venezuela, Jan 3 2026, predates Day 1) — real decapitation op (~2h28m, Maduro in NYC custody, ~445k bpd now flowing to US, Chevron 200–240k)</li>
+            <li>Trump "$85 a barrel" rejected (Brent settled $92.78 / WTI $89.77); "Iran admitted" deflected; "fully negotiated" = Iran rejected proposal 6/9</li>
+            <li>Flagged 15-vs-20-year nuclear-term drift (Axios 4-element/~15-yr vs Rubio's Day-96 "20 years zero-enrichment") as new watch item</li>
+            <li>NYT-only claims got [NEEDS URL] flags (3 total) — NYT blocks the crawler</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="gotchas section-block">
+          <span class="section-label">Gotchas</span>
+          <div class="section-content">
+            <ul>
+              <li>fowr_tracker.md giant single-line entry can't be Edit-ed after truncated partial Read — workaround: targeted Python string-replace via Bash with uniqueness assert on the marker</li>
+              <li>nytimes.com is not accessible to WebSearch user agent (explicit 400) — NYT URLs cannot be pinned; budget for [NEEDS URL] flags</li>
+              <li>Settebello casualty count drifted across the day (UKMTO "2 missing" → SAFETY4SEA "1 dead + 2 missing" → India MEA "3 missing") — same-incident reporting-timeline drift, not separate vessels</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="open-items section-block">
+          <span class="section-label">Still open</span>
+          <div class="section-content">
+            <ul>
+              <li>Did Wednesday-night strike package execute? First check needed — if it landed while Qatar's mediators were in Tehran, bombing + deal tracks are one instrument</li>
+              <li>Settebello death confirmation — would be blockade's FIRST seafarer fatality + 2-vs-3 missing count resolution</li>
+              <li>India's next rung: shipping advisory / manning-agency war clauses / ITF action</li>
+              <li>3 [NEEDS URL] NYT flags for Bryan to fill at Substack publish (section ID 371665)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brief-footer">
+      <div class="footer-id">2026-06-10-session-fowr-day-103-full-briefing</div>
+      <div class="tags">
+        <span class="tag">fog-of-war-room</span>
+        <span class="tag">session-recap</span>
+        <span class="tag">briefing-workflow</span>
+        <span class="tag">fowr-day-103</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ DAY 101 -->
+  <div class="brief-card">
+    <div class="brief-header">
+      <div class="day-badge">D·101</div>
+      <div class="brief-meta">
+        <div class="brief-title">FoWR Day 101 — June 8, 2026</div>
+        <div class="brief-date">captured 2026-06-08T09:41:59 ET · claude-code</div>
+      </div>
+      <span class="brief-type flash">Flash</span>
+    </div>
+
+    <div class="brief-body">
+      <div class="thesis-block">
+        The Day-100 held tension (Israel's withheld retaliation) resolved — Israel struck Iran in two waves overnight, then both sides self-arrested inside 24 hours. Meanwhile the Houthis opened a Red Sea front (complete blockade on Israeli shipping + 2 BMs) AS the Iran-Israel core de-escalated: counter-cyclical, a second chokepoint stacked on still-shut Hormuz.
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">What shipped</span>
+        <div class="section-content">
+          <ul>
+            <li>Delta from Day 100: 5 parallel Explore verification agents (Israeli strikes; de-escalation signals; Houthi Red Sea blockade; oil/markets; Iran missile barrage + casualties)</li>
+            <li>Compressed flash format: delta read + 5 ⚡ SIGNAL paragraphs + Watch-next</li>
+            <li>Archive written, HTML sibling rendered, Day 101 block spliced into tracker, HTML opened</li>
+            <li>Internal-only — no Pages push, no #fowr alert</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">Key decisions</span>
+        <div class="section-content">
+          <ul>
+            <li>Oil baseline correction: rejected NYT morning "Brent ~$94/+2%" as early intraday; locked multi-source settle Brent ~$96–97.7 (+~4%) / WTI ~$93 [HIGH — CNBC/Bloomberg/Trading Economics]</li>
+            <li>Sharpened framing: Israel struck FIRST in open defiance of Trump, then de-escalated on second beat — not the seed's softer "Netanyahu pulled back after pushback"</li>
+            <li>Held IRGC target claims (Nevatim/Tel Nof/Haifa, "Operation Nasr") as CLAIMS not facts — Israel reported interceptions only</li>
+            <li>Netanyahu "halted preparations" flagged as NYT/Bergman single-thread (MED-HIGH)</li>
+            <li>Day-100 watch item (a) [Israeli retaliation order] FIRED; watch (d) [war-risk reprice] FIRED via Houthi Red Sea blockade; watch (c) [MOU survives direct exchange] = fragile YES</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="gotchas section-block">
+          <span class="section-label">Gotchas</span>
+          <div class="section-content">
+            <ul>
+              <li>Tracker line 5 is a single giant line (~189k chars) that exceeds Read tool's 25k-token cap — Edit's "must Read first" is unsatisfiable. Workaround: Python string-replace on unique "Last updated" anchor (verified exactly 1 match before writing). Durable pattern for future tracker edits.</li>
+              <li>"No casualties either side" made the off-ramp possible — a bloodless full strike/counter-strike cycle is one both sides can walk back without losing face</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="open-items section-block">
+          <span class="section-label">Still open</span>
+          <div class="section-content">
+            <ul>
+              <li>Does the verbal IRGC-"concluded"/Netanyahu-"halt" stand-down hold overnight or does a 3rd beat fire?</li>
+              <li>Does Houthi blockade go declaration → actual Red Sea interdiction (cleanest fresh JWC/Bab-al-Mandab insurance trigger)?</li>
+              <li>Does anyone bleed — first casualty removes the off-ramp</li>
+              <li>Still no JWLA-034 — watch for JWC relisting prompted by Houthi blockade declaration</li>
+              <li>OPEC+ composition/cut-figure baseline gap (UAE exited May 1) still unaddressed in full-briefing prose</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brief-footer">
+      <div class="footer-id">2026-06-08-session-fowr-day-101-flash-briefing</div>
+      <div class="tags">
+        <span class="tag">fog-of-war-room</span>
+        <span class="tag">session-recap</span>
+        <span class="tag">flash-briefing</span>
+        <span class="tag">briefing-workflow</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ DAY 100 -->
+  <div class="brief-card">
+    <div class="brief-header">
+      <div class="day-badge">D·100</div>
+      <div class="brief-meta">
+        <div class="brief-title">FoWR Day 100 — June 7, 2026</div>
+        <div class="brief-date">captured 2026-06-08T08:41:56 ET · claude-code</div>
+      </div>
+      <span class="brief-type full">Full</span>
+    </div>
+
+    <div class="brief-body">
+      <div class="thesis-block">
+        "The metronome jumps tracks." Prior 6 weeks were a Gulf US↔Iran strike-for-strike equilibrium; tonight it broke its decoupling by jumping to a new, more dangerous axis — direct Iran→Israel — rather than a 3rd Gulf cycle. The market tell: oil shrugged the Gulf metronome but repriced Brent +2.9% the instant the front moved to Israel.
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">What shipped</span>
+        <div class="section-content">
+          <ul>
+            <li>Seed: single NYT live-blog — Iran fired ~10 ballistic missiles in two barrages directly at northern Israel, first direct Iran→Israel strike since April cease-fire (triggered by Israeli strike on Hezbollah target in Dahiyeh)</li>
+            <li>6 parallel Explore verification subagents: kinetic, diplomatic/Trump, economic/OPEC+, insurance, Iran-internal/succession, regional/alliance</li>
+            <li>8-section briefing drafted; archive .md written; HTML rendered; tracker updated</li>
+            <li>LOCAL HTML ONLY — no Pages push, no #fowr alert, no Substack</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <span class="section-label">Key decisions</span>
+        <div class="section-content">
+          <ul>
+            <li>Interception/casualty contradiction held OPEN — NYT (6:45pm ET) said all intercepted in first barrage, no casualties; subagent surfaced aggregated reporting of Haifa impact with civilian deaths; written as IDF's contemporaneous claim with damage picture flagged unresolved</li>
+            <li>AWRP defaulted to tracker baseline (0.8–1.0% general / 2.5–7.5% IL-nexus / 10% distressed) — rejected insurance subagent's "softened 0.35–0.45%" as stale/wrong-year (one cite was June 2025)</li>
+            <li>OPEC+ 6/7 outcome flagged MEDIUM — subagent leaned on May-3 (40th-meeting) sources; framed by ~188k bpd/month cadence rather than asserting July figure</li>
+            <li>Amit Halevi quote softened to paraphrase (MEDIUM) — exact wording didn't verify; Ben-Gvir "Tehran must burn tonight" = verbatim-confirmed HIGH</li>
+            <li>Frontmatter: time_utc 22:45; "26 sources verified // 4 fragmentary // 2 disputed"; editorial_state Draft</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="gotchas section-block">
+          <span class="section-label">Gotchas</span>
+          <div class="section-content">
+            <ul>
+              <li>Edit tool refused after truncated Read — tracker line 5 is one ~70k-token line; initial Read returned partial view that did NOT register as "read." Fix: small <code>Read limit=4</code> registered file successfully. Read-tracking is per-file, not per-line.</li>
+              <li>Insurance subagent muddied AWRP with mixed-year data (June 2025 cite alongside June 2026) — always default to locked tracker baseline over a single subagent's number</li>
+              <li>OPEC+ subagent conflated 41st (6/7) ministerial with 40th (5/3); specific June-7 communiqué is thinly sourced</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="open-items section-block">
+          <span class="section-label">Still open</span>
+          <div class="section-content">
+            <ul>
+              <li>Haifa-impact / interception forensics = the single load-bearing fact most likely to have moved since seed — Bryan to eyeball before any publish</li>
+              <li>Brief is Draft, LOCAL ONLY — if Bryan publishes, re-run cowork-pages-push.sh + verify 302 gate</li>
+              <li>7 new tracker watch items: Israeli retaliation order vs Trump restraint; confirmed Haifa impact; MOU survival/counteroffer; Eastern-Med war-risk reprice; Mojtaba at late-June funeral; FM+IRGC alignment as hardening signal; OPEC+ unwind acceleration post-UAE</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="brief-footer">
+      <div class="footer-id">2026-06-08-session-fowr-day-100-full-briefing</div>
+      <div class="tags">
+        <span class="tag">fog-of-war-room</span>
+        <span class="tag">session-recap</span>
+        <span class="tag">briefing-workflow</span>
+        <span class="tag">substack</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /briefs-grid -->
+
+</body>
+</html>
